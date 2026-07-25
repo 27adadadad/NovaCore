@@ -16,6 +16,7 @@ from novacore.agent import (
     StreamText,
     ToolResultEvent,
     ToolUseEvent,
+    CompactNotification,
 )
 
 from novacore.conversation import ConversationManager
@@ -211,6 +212,22 @@ class NovaCoreApp(App[None]):
                         animate=False
                     )
 
+                elif isinstance(
+                    event,
+                    CompactNotification,
+                ):
+                    await chat.mount(
+                        Static(
+                            f"[Context] {event.message}",
+                            classes="system-message",
+                            markup=False,
+                        ),
+                        before=assistant_message,
+                    )
+                    chat.scroll_end(
+                        animate=False
+                    )
+
                 elif isinstance(event, ToolUseEvent):
                     await chat.mount(
                         Static(
@@ -281,6 +298,7 @@ class NovaCoreApp(App[None]):
                         )
                     )
                     chat.scroll_end(animate=False)
+
                 
 
                 elif isinstance(event, ErrorEvent):

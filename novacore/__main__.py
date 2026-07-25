@@ -18,6 +18,7 @@ from novacore.agent import (
     ErrorEvent,
     PermissionRequest,
     PermissionResponse,
+    CompactNotification,
 )
 from novacore.permissions import (
     PermissionChecker,
@@ -81,6 +82,7 @@ async def main()->None:
     agent = Agent(
         client=client,
         registry=registry,
+        context_window=config.context_window,
         permission_checker=permission_checker,
     ) 
 
@@ -138,6 +140,13 @@ async def main()->None:
 
                 print(
                     f"[tool] {event.tool_name} {status}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            elif isinstance(event, CompactNotification):
+                print(
+                    f"\n[context] {event.message}",
                     file=sys.stderr,
                     flush=True,
                 )

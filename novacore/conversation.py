@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+
+
+
 from dataclasses import dataclass, field
 from typing import Any 
 
@@ -22,9 +26,49 @@ class Message:
     tool_uses:list[ToolUseBlock]=field(default_factory=list)
     tool_results:list[ToolResultBlock]=field(default_factory=list)
 
+_CHARS_PER_TOKEN = 3.5
+
+def _message_chars(message:Message)->int:
+    total = len(message.content)
+
+    for tool_use in message.tool_uses:
+        total += len(tool_use.tool_name)
+        total += len(
+            json.dumps(
+                tool_use.arguments,
+                ensure_ascii=False,
+            )
+        )
+
+    for tool_result in message.tool_results:
+        total += len(tool_result.content)
+
+    return total
+
+def estimate_tokens(
+    messages: list[Message],
+)->int:
+    total_chars = sum(
+        _message_chars(message)
+        for message in messages
+    )
+
+    return int(
+        total_chars / _CHARS_PER_TOKEN
+    )
+
 @dataclass
 class ConversationManager:
     history:list[Message] = field(default_factory=list)
+
+    def current_tokens(self)->int:
+        return estimate_tokens(self.history)
+
+    def replace_history(
+        self,
+        messages: list[Message],
+    ) -> None:
+        self.history = list(messages)
 
     def add_user_message(self, content:str):
         self.history.append(Message(role="user", content = content))

@@ -8,6 +8,7 @@ class Config:
     api_key:str
     base_url:str
     model:str
+    context_window:int
 
 
 def load_config()->Config:
@@ -21,5 +22,6 @@ def load_config()->Config:
     return Config(
         api_key=api_key,
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        model="qwen-plus"
+        model="qwen-plus",
+        context_window=128_000,
     )

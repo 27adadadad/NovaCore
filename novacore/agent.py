@@ -22,6 +22,7 @@ from novacore.tools import ToolRegistry, ToolResult
 from novacore.serialization import build_chat_completion_messages
 
 from novacore.permissions import PermissionChecker
+from novacore.context import compact_conversation, CompactBoundary
 
 @dataclass 
 class StreamText:
@@ -52,6 +53,11 @@ class LoopComplete:
 class ErrorEvent:
     message:str
 
+@dataclass
+class CompactNotification:
+    before_tokens: int
+    message:str
+    boundary:CompactBoundary | None = None
 
 class PermissionResponse(Enum):
     ALLOW = "allow"
@@ -73,6 +79,7 @@ AgentEvent = (
     | LoopComplete
     | ErrorEvent
     | PermissionRequest
+    | CompactNotification
 )
 
 
@@ -114,11 +121,13 @@ class Agent:
         self,
         client:Client,
         registry:ToolRegistry,
+        context_window:int,
         permission_checker: PermissionChecker | None = None,
         max_iterations:int = 5,
     )->None:
         self.client = client
         self.registry = registry
+        self.context_window = context_window
         self.permission_checker = (
             permission_checker
             if permission_checker is not None
@@ -251,6 +260,12 @@ class Agent:
         conversation.add_user_message(prompt)
 
         for _iteration in range(self.max_iterations):
+            await compact_conversation(
+                conversation,
+                self.client,
+                self.context_window,
+            )
+
             messages = build_chat_completion_messages(
                 conversation.get_messages()
             )
@@ -302,6 +317,22 @@ class Agent:
         conversation.add_user_message(prompt)
 
         for _iteration in range(self.max_iterations):
+            compact_event = await compact_conversation(
+                conversation,
+                self.client,
+                self.context_window,
+            )
+
+            if compact_event is not None:
+                yield CompactNotification(
+                    before_tokens=compact_event.before_tokens,
+                    message=(
+                        "上下文已压缩"
+                        f"（压缩前 {compact_event.before_tokens:,} tokens）"
+                    ),
+                    boundary=compact_event.boundary,
+                )
+
             messages = build_chat_completion_messages(
                 conversation.get_messages()
             )
