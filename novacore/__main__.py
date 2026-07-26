@@ -29,6 +29,9 @@ from novacore.command_safety import DangerousCommandDetector
 
 
 from novacore.tui import run_tui
+from novacore.conversation import ConversationManager
+from novacore.session import SessionManager, make_compact_boundary
+from novacore.context import CompactBoundary
 
 def parse_args()->argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -68,6 +71,7 @@ async def main()->None:
     args = parse_args()
 
     sandbox = PathSandbox(project_root=Path.cwd())
+
     config = load_config()
     client = DashScopeClient(config)
     registry = create_default_registry(
@@ -86,99 +90,133 @@ async def main()->None:
         permission_checker=permission_checker,
     ) 
 
-    if args.prompt is None:
-        await run_tui(agent)
-        return       
+    session_manager = SessionManager(
+        sandbox.project_root,
+    )
+    session = session_manager.create()
 
-    if args.stream:
-        async for event in agent.stream_to_completion(
-            args.prompt
-        ):
-            if isinstance(event, StreamText):
-                print(
-                    event.text,
-                    end="",
-                    flush=True,
-                )
+    conversation = ConversationManager(
+        on_message=session.append,
+    )
 
-            elif isinstance(event, ToolUseEvent):
-                print(
-                    f"\n[tool] calling {event.tool_name}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+    def save_compact_boundary(
+        boundary: CompactBoundary,
+    ) -> None:
+        record = make_compact_boundary(
+            boundary.summary,
+            boundary.keep,
+        )
+        session.append_record(record)
 
-            elif isinstance(event, PermissionRequest):
-                print(
-                    (
-                        f"\n[permission] {event.description}\n"
-                        f"Reason: {event.reason}\n"
-                        "Allow? [y/N]: "
-                    ),
-                    end="",
-                    file=sys.stderr,
-                    flush=True,
-                )
+    try:
+        if args.prompt is None:
+            await run_tui(
+                agent,
+                conversation,
+                session,
+            )
+            return
 
-                answer = await asyncio.to_thread(
-                    sys.stdin.readline
-                )
-                answer = answer.strip().lower()
 
-                response = (
-                    PermissionResponse.ALLOW
-                    if answer in {"y", "yes"}
-                    else PermissionResponse.DENY
-                )
+        if args.stream:
+            async for event in agent.stream_to_completion(
+                args.prompt,
+                conversation=conversation,
+            ):
+                if isinstance(event, StreamText):
+                    print(
+                        event.text,
+                        end="",
+                        flush=True,
+                    )
 
-                if not event.future.done():
-                    event.future.set_result(response)
-                
+                elif isinstance(event, ToolUseEvent):
+                    print(
+                        f"\n[tool] calling {event.tool_name}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
-            elif isinstance(event, ToolResultEvent):
-                status = "failed" if event.is_error else "completed"
+                elif isinstance(event, PermissionRequest):
+                    print(
+                        (
+                            f"\n[permission] {event.description}\n"
+                            f"Reason: {event.reason}\n"
+                            "Allow? [y/N]: "
+                        ),
+                        end="",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
-                print(
-                    f"[tool] {event.tool_name} {status}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                    answer = await asyncio.to_thread(
+                        sys.stdin.readline
+                    )
+                    answer = answer.strip().lower()
 
-            elif isinstance(event, CompactNotification):
-                print(
-                    f"\n[context] {event.message}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                    response = (
+                        PermissionResponse.ALLOW
+                        if answer in {"y", "yes"}
+                        else PermissionResponse.DENY
+                    )
 
-            elif isinstance(event, TurnComplete):
-                print(
-                    f"[turn] {event.turn} completed",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                    if not event.future.done():
+                        event.future.set_result(response)
 
-            elif isinstance(event, LoopComplete):
-                print(
-                    f"\n[done] {event.total_turns} turn(s)",
-                    file=sys.stderr,
-                    flush=True,
-                )
 
-            elif isinstance(event, ErrorEvent):
-                print(
-                    f"\n[error] {event.message}",
-                    file=sys.stderr,
-                    flush=True,
-                )
-        print()
+                elif isinstance(event, ToolResultEvent):
+                    status = "failed" if event.is_error else "completed"
 
-    else:
-         answer = await agent.run_to_completion(
-              args.prompt
-         )
-         print(answer)
-                
+                    print(
+                        f"[tool] {event.tool_name} {status}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+
+                elif isinstance(event, CompactNotification):
+                    if event.boundary is not None:
+                        save_compact_boundary(
+                            event.boundary
+                        )
+
+                    print(
+                        f"\n[context] {event.message}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+
+                elif isinstance(event, TurnComplete):
+                    print(
+                        f"[turn] {event.turn} completed",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+
+                elif isinstance(event, LoopComplete):
+                    print(
+                        f"\n[done] {event.total_turns} turn(s)",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+
+                elif isinstance(event, ErrorEvent):
+                    print(
+                        f"\n[error] {event.message}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+            print()
+
+        else:
+            answer = await agent.run_to_completion(
+                args.prompt,
+                conversation=conversation,
+                on_compact=save_compact_boundary,
+            )
+            print(answer)
+
+    finally:
+        session.close()
 
 if __name__ == "__main__":
         asyncio.run(main())

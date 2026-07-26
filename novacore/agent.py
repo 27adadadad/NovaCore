@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 import asyncio
 from enum import Enum
@@ -58,6 +58,12 @@ class CompactNotification:
     before_tokens: int
     message:str
     boundary:CompactBoundary | None = None
+
+CompactCallback = Callable[
+    [CompactBoundary],
+    None,
+]
+
 
 class PermissionResponse(Enum):
     ALLOW = "allow"
@@ -255,16 +261,24 @@ class Agent:
             self, 
             prompt:str,
             conversation:ConversationManager | None = None,
+            on_compact: CompactCallback | None = None,
     )->str:
         conversation = conversation or ConversationManager()
         conversation.add_user_message(prompt)
 
         for _iteration in range(self.max_iterations):
-            await compact_conversation(
+            compact_event = await compact_conversation(
                 conversation,
                 self.client,
                 self.context_window,
             )
+
+            if (
+                compact_event is not None
+                and compact_event.boundary is not None
+                and on_compact is not None
+            ):
+                on_compact(compact_event.boundary)
 
             messages = build_chat_completion_messages(
                 conversation.get_messages()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import json
 
 
@@ -25,6 +27,8 @@ class Message:
     content:str
     tool_uses:list[ToolUseBlock]=field(default_factory=list)
     tool_results:list[ToolResultBlock]=field(default_factory=list)
+
+MessageCallback = Callable[[Message], None]
 
 _CHARS_PER_TOKEN = 3.5
 
@@ -60,6 +64,19 @@ def estimate_tokens(
 @dataclass
 class ConversationManager:
     history:list[Message] = field(default_factory=list)
+    on_message: MessageCallback | None = field(
+        default=None,
+        repr=False,
+    )
+
+    def _append_message(
+        self,
+        message: Message,
+    ) -> None:
+        self.history.append(message)
+
+        if self.on_message is not None:
+            self.on_message(message)
 
     def current_tokens(self)->int:
         return estimate_tokens(self.history)
@@ -71,14 +88,14 @@ class ConversationManager:
         self.history = list(messages)
 
     def add_user_message(self, content:str):
-        self.history.append(Message(role="user", content = content))
+        self._append_message(Message(role="user", content = content))
 
     def add_assistant_message(
         self,
         content:str,    
         tool_uses:list[ToolUseBlock] | None=None
     )->None:
-        self.history.append(
+        self._append_message(
             Message(
                 role="assistant",
                 content=content,
@@ -87,7 +104,7 @@ class ConversationManager:
         )
 
     def add_tool_results_message(self, tool_results:list[ToolResultBlock])->None:
-        self.history.append(
+        self._append_message(
             Message(
                 role="user",
                 content="",

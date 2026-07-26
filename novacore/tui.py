@@ -20,6 +20,7 @@ from novacore.agent import (
 )
 
 from novacore.conversation import ConversationManager
+from novacore.session import Session, make_compact_boundary
 
 import asyncio
 
@@ -82,10 +83,13 @@ class NovaCoreApp(App[None]):
     def __init__(
         self,
         agent:Agent,
+        conversation:ConversationManager,
+        session:Session,
     )->None:
         super().__init__()
         self.agent=agent
-        self.conversation = ConversationManager()
+        self.conversation = conversation
+        self.session = session
 
         self._agent_task:asyncio.Task[None] | None = None
         self._pending_permission: PermissionRequest | None = None
@@ -216,6 +220,13 @@ class NovaCoreApp(App[None]):
                     event,
                     CompactNotification,
                 ):
+                    if event.boundary is not None:
+                        record = make_compact_boundary(
+                            event.boundary.summary,
+                            event.boundary.keep,
+                        )
+                        self.session.append_record(record)
+
                     await chat.mount(
                         Static(
                             f"[Context] {event.message}",
@@ -321,5 +332,11 @@ class NovaCoreApp(App[None]):
 
 async def run_tui(
     agent:Agent,
+    conversation:ConversationManager,
+    session:Session,
 )->None:
-    await NovaCoreApp(agent).run_async()
+    await NovaCoreApp(
+        agent,
+        conversation,
+        session,
+    ).run_async()
