@@ -21,6 +21,15 @@ from novacore.agent import (
 
 from novacore.conversation import ConversationManager
 from novacore.session import Session, make_compact_boundary
+from novacore.commands import (
+    CommandContext,
+    CommandInvocation,
+    CommandRegistry,
+    parse_command,
+)
+from novacore.context import (
+    compact_conversation,
+)
 
 import asyncio
 
@@ -90,8 +99,15 @@ class NovaCoreApp(App[None]):
         self.agent=agent
         self.conversation = conversation
         self.session = session
+        self.command_registry = CommandRegistry()
 
-        self._agent_task:asyncio.Task[None] | None = None
+        self.command_context=CommandContext(
+            conversation=self.conversation,
+            session_id=self.session.session_id,
+            compact=self._compact_context,
+        )
+
+        self._active_task:asyncio.Task[None] | None = None
         self._pending_permission: PermissionRequest | None = None
         self._permission_panel:Vertical | None = None
 
@@ -117,8 +133,8 @@ class NovaCoreApp(App[None]):
             return
         
         if(
-            self._agent_task is not None
-            and not self._agent_task.done()
+            self._active_task is not None
+            and not self._active_task.done()
         ):
             return 
         
@@ -140,9 +156,35 @@ class NovaCoreApp(App[None]):
 
         chat.scroll_end(animate=False)
 
+        try:
+            invocation = parse_command(
+                prompt
+            )
+        except ValueError as exc:
+            await chat.mount(
+                Static(
+                    f"[Command error] {exc}",
+                    classes="system-message",
+                    markup=False,
+                )
+            )
+            chat.scroll_end(animate=False)
+            return
+
+        if invocation is not None:
+            prompt_input.disabled=True
+
+            self._active_task = asyncio.create_task(
+                self._run_command(
+                    invocation
+                )
+            )
+
+            return
+
         prompt_input.disabled = True
 
-        self._agent_task = asyncio.create_task(
+        self._active_task = asyncio.create_task(
             self._run_agent(prompt)
         )
 
@@ -172,6 +214,90 @@ class NovaCoreApp(App[None]):
 
         if not request.future.done():
             request.future.set_result(response)
+
+    async def _compact_context(
+        self,
+    )->str:
+        compact_event = await compact_conversation(
+            self.conversation,
+            self.agent.client,
+            self.agent.context_window,
+            manual=True,
+        )
+
+        if (
+            compact_event is None
+            or compact_event.boundary is None
+        ):
+            return(
+                "Context is too small "
+                "to compact"
+            )
+
+        boundary = compact_event.boundary
+
+        record = make_compact_boundary(
+            boundary.summary,
+            boundary.keep,
+        )
+
+        self.session.append_record(record)
+
+        return (
+            "Context compacted "
+            f"({compact_event.before_tokens:,} "
+            "tokens before compaction)"
+        )
+
+    async def _run_command(
+        self,
+        invocation:CommandInvocation,
+    )->None:
+        chat = self.query_one(
+            "#chat",
+            VerticalScroll,
+        )
+        prompt_input = self.query_one(
+            "#prompt",
+            Input,
+        )
+        try:
+            result = await (
+                self.command_registry.execute(
+                    self.command_context,
+                    invocation
+                )
+            )
+
+            label = (
+                "Command error"
+                if result.is_error
+                else "Command"
+            )
+
+            await chat.mount(
+                Static(
+                    f"[{label}] {result.content}",
+                    classes="system-message",
+                    markup=False,
+                )
+            )
+
+        except Exception as exc:
+            await chat.mount(
+                Static(
+                    f"[Command error] {exc}",
+                    classes="system-message",
+                    markup=False,
+                )
+            )
+
+        finally:
+            prompt_input.disabled = False
+            prompt_input.focus()
+
+            self._active_task = None
+            chat.scroll_end(animate=False)
 
     async def _run_agent(
         self,
@@ -326,7 +452,7 @@ class NovaCoreApp(App[None]):
             prompt_input.disabled = False
             prompt_input.focus()
 
-            self._agent_task=None
+            self._active_task=None
             chat.scroll_end(animate=False)
 
 
