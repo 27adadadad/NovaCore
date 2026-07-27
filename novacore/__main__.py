@@ -43,12 +43,19 @@ def parse_args()->argparse.Namespace:
         action="store_true",
         help="Stream the response"
     )
-    
+
     parser.add_argument(
         "-p", 
         "--prompt",
         default=None,
         help="task to send to the agent",
+    )
+
+    parser.add_argument(
+        "--resume",
+        default=None,
+        metavar="SESSION_ID",
+        help="Resume an existing session",
     )
 
     parser.add_argument(
@@ -93,11 +100,30 @@ async def main()->None:
     session_manager = SessionManager(
         sandbox.project_root,
     )
-    session = session_manager.create()
 
-    conversation = ConversationManager(
-        on_message=session.append,
-    )
+    if args.resume is None:
+        session = session_manager.create()
+
+        conversation = ConversationManager(
+            on_message=session.append,
+        )
+
+    else:
+        resume_result = session_manager.resume(
+            args.resume
+        )
+
+        if resume_result is None:
+            raise SystemExit(
+                f"Session not found: {args.resume}"
+            )
+
+        session = resume_result.session
+
+        conversation = ConversationManager(
+            history=resume_result.messages,
+            on_message=session.append,
+        )
 
     def save_compact_boundary(
         boundary: CompactBoundary,

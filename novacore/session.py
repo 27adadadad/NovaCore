@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 import json
 import random
 import string
@@ -18,6 +19,20 @@ SESSIONS_DIR = (
     Path(".novacore")
     / "sessions"
 )
+
+_SESSION_ID_PATTERN = re.compile(
+    r"^session_\d{8}_\d{6}_[a-z0-9]{4}$"
+)
+
+def _is_valid_session_id(
+    session_id: str,
+) -> bool:
+    return (
+        _SESSION_ID_PATTERN.fullmatch(
+            session_id
+        )
+        is not None
+    )
 
 def _generate_session_id() -> str:
     now = datetime.now()
@@ -538,6 +553,11 @@ class SessionManager:
         self,
         session_id:str,
     )->ResumeResult | None:
+        if not _is_valid_session_id(
+            session_id
+        ):
+            return None
+
         jsonl_path = (
             self._sessions_dir
             / f"{session_id}.jsonl"
