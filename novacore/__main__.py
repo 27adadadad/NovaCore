@@ -32,6 +32,7 @@ from novacore.tui import run_tui
 from novacore.conversation import ConversationManager
 from novacore.session import SessionManager, make_compact_boundary
 from novacore.context import CompactBoundary
+from novacore.mcp import MCPManager, load_mcp_server_configs
 
 def parse_args()->argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -64,6 +65,17 @@ def parse_args()->argparse.Namespace:
         default=PermissionMode.DEFAULT.value,
         help="Permission mode used for tool execution",
     )
+
+    parser.add_argument(
+        "--mcp-config",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Load MCP servers from "
+            "a JSON configuration file"
+        ),
+    )
     
     args = parser.parse_args()
 
@@ -84,6 +96,7 @@ async def main()->None:
     registry = create_default_registry(
         work_dir=sandbox.project_root
     )
+    mcp_manager = MCPManager(registry)
     detector = DangerousCommandDetector()
     permission_checker = PermissionChecker(
         detector=detector,
@@ -135,6 +148,30 @@ async def main()->None:
         session.append_record(record)
 
     try:
+        if args.mcp_config is not None:
+            server_configs = (
+                load_mcp_server_configs(
+                    args.mcp_config
+                )
+            )
+
+            for server_config in server_configs:
+                tool_names = await (
+                    mcp_manager.connect_server(
+                        server_config
+                    )
+                )
+
+                print(
+                    (
+                        f"[mcp] connected "
+                        f"{server_config.name} "
+                        f"({len(tool_names)} tools)"
+                    ),
+                    file=sys.stderr,
+                    flush=True,
+                )
+
         if args.prompt is None:
             await run_tui(
                 agent,
@@ -242,7 +279,10 @@ async def main()->None:
             print(answer)
 
     finally:
-        session.close()
+        try:
+            await mcp_manager.close()
+        finally:
+            session.close()
 
 if __name__ == "__main__":
         asyncio.run(main())
