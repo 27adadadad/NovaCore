@@ -86,10 +86,25 @@ class PermissionChecker:
             self.mode!=PermissionMode.BYPASS
             and tool.category in ("read", "write")
         ):
-            file_path = arguments.get("file_path")
+            for path_key in (
+                "file_path",
+                "path",
+            ):
+                requested_path = (
+                    arguments.get(path_key)
+                )
 
-            if isinstance(file_path, str):
-                allowed, reason = self.sandbox.check(file_path)
+                if not isinstance(
+                    requested_path,
+                    str,
+                ):
+                    continue
+
+                allowed, reason = (
+                    self.sandbox.check(
+                        requested_path
+                    )
+                )
 
                 if not allowed:
                     return Decision(
