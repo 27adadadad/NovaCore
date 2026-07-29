@@ -37,6 +37,10 @@ from novacore.skills import (
     LoadSkill,
     SkillLoader,
 )
+from novacore.agents import (
+    AgentLoader,
+    AgentTool,
+)
 
 def parse_args()->argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -109,6 +113,11 @@ async def main()->None:
     registry.register(
         LoadSkill(skill_loader)
     )
+    agent_loader = AgentLoader(
+        sandbox.project_root
+    )
+
+    agent_loader.load_all()
     mcp_manager = MCPManager(registry)
     detector = DangerousCommandDetector()
     permission_checker = PermissionChecker(
@@ -122,6 +131,12 @@ async def main()->None:
         context_window=config.context_window,
         permission_checker=permission_checker,
     ) 
+    registry.register(
+        AgentTool(
+            loader=agent_loader,
+            parent_agent=agent,
+        )
+    )
 
     session_manager = SessionManager(
         sandbox.project_root,

@@ -87,6 +87,17 @@ class ConversationManager:
     ) -> None:
         self.history = list(messages)
 
+    def add_system_message(
+        self,
+        content: str,
+    ) -> None:
+        self._append_message(
+            Message(
+                role="system",
+                content=content,
+            )
+        )
+
     def add_user_message(self, content:str):
         self._append_message(Message(role="user", content = content))
 
