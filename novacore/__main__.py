@@ -33,6 +33,10 @@ from novacore.conversation import ConversationManager
 from novacore.session import SessionManager, make_compact_boundary
 from novacore.context import CompactBoundary
 from novacore.mcp import MCPManager, load_mcp_server_configs
+from novacore.skills import (
+    LoadSkill,
+    SkillLoader,
+)
 
 def parse_args()->argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -95,6 +99,15 @@ async def main()->None:
     client = DashScopeClient(config)
     registry = create_default_registry(
         work_dir=sandbox.project_root
+    )
+    skill_loader = SkillLoader(
+        sandbox.project_root
+    )
+
+    skill_loader.load_all()
+
+    registry.register(
+        LoadSkill(skill_loader)
     )
     mcp_manager = MCPManager(registry)
     detector = DangerousCommandDetector()
