@@ -4,7 +4,12 @@ from novacore.agents.parser import (
     AgentParseError,
     parse_agent_file,
 )
-
+from novacore.agents.trace import (
+    FinalTraceStatus,
+    TraceManager,
+    TraceNode,
+    TraceStatus,
+)
 
 from novacore.agents.tool import (
     AgentTool,
@@ -24,4 +29,8 @@ __all__ = [
     "AgentToolParams",
     "build_agent_registry",
     "parse_agent_file",
+    "FinalTraceStatus",
+    "TraceManager",
+    "TraceNode",
+    "TraceStatus",
 ]

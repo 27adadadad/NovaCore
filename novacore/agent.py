@@ -23,6 +23,10 @@ from novacore.serialization import build_chat_completion_messages
 
 from novacore.permissions import PermissionChecker
 from novacore.context import compact_conversation, CompactBoundary
+from novacore.agents.trace import (
+    TraceManager,
+    TraceNode,
+)
 
 @dataclass 
 class StreamText:
@@ -130,6 +134,9 @@ class Agent:
         context_window:int,
         permission_checker: PermissionChecker | None = None,
         max_iterations:int = 5,
+        trace_manager: TraceManager | None = None,
+        agent_type: str = "main",
+        parent_trace: TraceNode | None = None,
     )->None:
         self.client = client
         self.registry = registry
@@ -140,6 +147,37 @@ class Agent:
             else PermissionChecker()
         )
         self.max_iterations = max_iterations
+        self.trace_manager = (
+            trace_manager
+            if trace_manager is not None
+            else TraceManager()
+        )
+        self.agent_type = agent_type
+        self.parent_trace = parent_trace
+        self.current_trace: TraceNode | None = None
+
+    def _start_trace(
+        self,
+    ) -> TraceNode:
+        parent = self.parent_trace
+
+        node = self.trace_manager.create(
+            agent_type=self.agent_type,
+            parent_id=(
+                parent.agent_id
+                if parent is not None
+                else None
+            ),
+            trace_id=(
+                parent.trace_id
+                if parent is not None
+                else None
+            ),
+        )
+
+        self.current_trace = node
+        return node
+
 
     async def _execute_tool_noninteractive(
         self,
@@ -263,173 +301,230 @@ class Agent:
             conversation:ConversationManager | None = None,
             on_compact: CompactCallback | None = None,
     )->str:
-        conversation = conversation or ConversationManager()
-        conversation.add_user_message(prompt)
+        trace = self._start_trace()
 
-        for _iteration in range(self.max_iterations):
-            compact_event = await compact_conversation(
-                conversation,
-                self.client,
-                self.context_window,
-            )
+        try:
+            conversation = conversation or ConversationManager()
+            conversation.add_user_message(prompt)
 
-            if (
-                compact_event is not None
-                and compact_event.boundary is not None
-                and on_compact is not None
-            ):
-                on_compact(compact_event.boundary)
-
-            messages = build_chat_completion_messages(
-                conversation.get_messages()
-            )
-
-            response = await self.client.complete(
-                messages,
-                tools=self.registry.get_all_schemas(),
-            )
-
-            if not response.tool_calls:
-                conversation.add_assistant_message(response.text)
-                return response.text
-            
-            tool_uses = [
-                ToolUseBlock(
-                    tool_use_id=tool_call.tool_id,
-                    tool_name=tool_call.tool_name,
-                    arguments=tool_call.arguments,
-                )
-                for tool_call in response.tool_calls
-            ]
-
-            conversation.add_assistant_message(response.text, tool_uses)
-
-            tool_results:list[ToolResultBlock]=[]
-
-            for tool_call in response.tool_calls:
-                result = await self._execute_tool_noninteractive(
-                    tool_call
+            for _iteration in range(self.max_iterations):
+                compact_event = await compact_conversation(
+                    conversation,
+                    self.client,
+                    self.context_window,
                 )
 
-                tool_results.append(
-                    ToolResultBlock(
-                        tool_use_id=tool_call.tool_id,
-                        content=result.output,
-                        is_error=result.is_error,
+                if (
+                    compact_event is not None
+                    and compact_event.boundary is not None
+                    and on_compact is not None
+                ):
+                    on_compact(compact_event.boundary)
+
+                messages = build_chat_completion_messages(
+                    conversation.get_messages()
+                )
+
+                response = await self.client.complete(
+                    messages,
+                    tools=self.registry.get_all_schemas(),
+                )
+
+                self.trace_manager.update(
+                    trace.agent_id,
+                    total_turns=_iteration + 1,
+                    tool_call_count=(
+                        trace.tool_call_count
+                        + len(response.tool_calls)
+                    ),
+                )
+
+                if not response.tool_calls:
+                    conversation.add_assistant_message(response.text)
+                    self.trace_manager.complete(
+                        trace.agent_id
                     )
-                )
-            conversation.add_tool_results_message(tool_results)
+                    return response.text
 
-        raise RuntimeError("Agent reached maximum iterations")
+                tool_uses = [
+                    ToolUseBlock(
+                        tool_use_id=tool_call.tool_id,
+                        tool_name=tool_call.tool_name,
+                        arguments=tool_call.arguments,
+                    )
+                    for tool_call in response.tool_calls
+                ]
+
+                conversation.add_assistant_message(response.text, tool_uses)
+
+                tool_results:list[ToolResultBlock]=[]
+
+                for tool_call in response.tool_calls:
+                    result = await self._execute_tool_noninteractive(
+                        tool_call
+                    )
+
+                    tool_results.append(
+                        ToolResultBlock(
+                            tool_use_id=tool_call.tool_id,
+                            content=result.output,
+                            is_error=result.is_error,
+                        )
+                    )
+                conversation.add_tool_results_message(tool_results)
+
+            self.trace_manager.complete(
+                trace.agent_id,
+                status="failed",
+            )
+
+            raise RuntimeError("Agent reached maximum iterations")
+
+        finally:
+            if trace.end_time is None:
+                self.trace_manager.complete(
+                    trace.agent_id,
+                    status="failed",
+                )
+
     
     async def stream_to_completion(
             self,
             prompt:str,
             conversation:ConversationManager | None = None
     )->AsyncIterator[AgentEvent]:
-        conversation = conversation or ConversationManager()
-        conversation.add_user_message(prompt)
+        trace = self._start_trace()
 
-        for _iteration in range(self.max_iterations):
-            compact_event = await compact_conversation(
-                conversation,
-                self.client,
-                self.context_window,
-            )
+        try:
 
-            if compact_event is not None:
-                yield CompactNotification(
-                    before_tokens=compact_event.before_tokens,
-                    message=(
-                        "上下文已压缩"
-                        f"（压缩前 {compact_event.before_tokens:,} tokens）"
-                    ),
-                    boundary=compact_event.boundary,
+            conversation = conversation or ConversationManager()
+            conversation.add_user_message(prompt)
+
+            for _iteration in range(self.max_iterations):
+                compact_event = await compact_conversation(
+                    conversation,
+                    self.client,
+                    self.context_window,
                 )
 
-            messages = build_chat_completion_messages(
-                conversation.get_messages()
-            )
+                if compact_event is not None:
+                    yield CompactNotification(
+                        before_tokens=compact_event.before_tokens,
+                        message=(
+                            "上下文已压缩"
+                            f"（压缩前 {compact_event.before_tokens:,} tokens）"
+                        ),
+                        boundary=compact_event.boundary,
+                    )
 
-            collector = StreamCollector()
+                messages = build_chat_completion_messages(
+                    conversation.get_messages()
+                )
 
-            stream = self.client.stream(
-                messages,
-                tools=self.registry.get_all_schemas(),
-            )
+                collector = StreamCollector()
 
-            async for event in collector.consume(stream):
-                yield event
+                stream = self.client.stream(
+                    messages,
+                    tools=self.registry.get_all_schemas(),
+                )
 
-            response = collector.response
+                async for event in collector.consume(stream):
+                    yield event
 
-            if not response.tool_calls:
-                conversation.add_assistant_message(response.text)
+                response = collector.response
 
-                yield LoopComplete(
+                self.trace_manager.update(
+                    trace.agent_id,
                     total_turns=_iteration + 1,
+                    tool_call_count=(
+                        trace.tool_call_count
+                        + len(response.tool_calls)
+                    ),
                 )
-                return
 
-            tool_uses = [
-                ToolUseBlock(
-                    tool_use_id=tool_call.tool_id,
-                    tool_name=tool_call.tool_name,
-                    arguments=tool_call.arguments,
-                )
-                for tool_call in response.tool_calls
-            ]
+                if not response.tool_calls:
+                    conversation.add_assistant_message(response.text)
 
-            conversation.add_assistant_message(
-                response.text,
-                tool_uses,
-            )
-
-            tool_results:list[ToolResultBlock] = []
-
-            for tool_call in response.tool_calls:
-                result : ToolResult | None = None
-
-                async for item in self._execute_tool_interactive(
-                    tool_call
-                ):
-                    if isinstance(item, PermissionRequest):
-                        yield item
-                    else:result = item
-
-                if result is None:
-                    result = ToolResult(
-                        output = ("Error :tool produced no result"),
-                        is_error=True,
+                    self.trace_manager.complete(
+                        trace.agent_id
                     )
-                    
 
-                yield ToolResultEvent(
-                    tool_id = tool_call.tool_id,
-                    tool_name=tool_call.tool_name,
-                    output = result.output,
-                    is_error = result.is_error,
-                )
+                    yield LoopComplete(
+                        total_turns=_iteration + 1,
+                    )
+                    return
 
-                tool_results.append(
-                    ToolResultBlock(
+                tool_uses = [
+                    ToolUseBlock(
                         tool_use_id=tool_call.tool_id,
-                        content=result.output,
-                        is_error=result.is_error,
+                        tool_name=tool_call.tool_name,
+                        arguments=tool_call.arguments,
                     )
+                    for tool_call in response.tool_calls
+                ]
+
+                conversation.add_assistant_message(
+                    response.text,
+                    tool_uses,
                 )
 
-            conversation.add_tool_results_message(
-                tool_results
+                tool_results:list[ToolResultBlock] = []
+
+                for tool_call in response.tool_calls:
+                    result : ToolResult | None = None
+
+                    async for item in self._execute_tool_interactive(
+                        tool_call
+                    ):
+                        if isinstance(item, PermissionRequest):
+                            yield item
+                        else:result = item
+
+                    if result is None:
+                        result = ToolResult(
+                            output = ("Error :tool produced no result"),
+                            is_error=True,
+                        )
+
+
+                    yield ToolResultEvent(
+                        tool_id = tool_call.tool_id,
+                        tool_name=tool_call.tool_name,
+                        output = result.output,
+                        is_error = result.is_error,
+                    )
+
+                    tool_results.append(
+                        ToolResultBlock(
+                            tool_use_id=tool_call.tool_id,
+                            content=result.output,
+                            is_error=result.is_error,
+                        )
+                    )
+
+                conversation.add_tool_results_message(
+                    tool_results
+                )
+
+                yield TurnComplete(
+                    turn=_iteration+1,
+                )
+
+            self.trace_manager.complete(
+                trace.agent_id,
+                status="failed",
             )
 
-            yield TurnComplete(
-                turn=_iteration+1,
+            yield ErrorEvent(
+                message=(
+                    f"Agent reached maximum iterations "
+                    f"({self.max_iterations})"
+                )
             )
 
-        yield ErrorEvent(
-            message=(
-                f"Agent reached maximum iterations " 
-                f"({self.max_iterations})"
-            )
-        )
+        finally:
+            if trace.end_time is None:
+                self.trace_manager.complete(
+                    trace.agent_id,
+                    status="failed",
+                )

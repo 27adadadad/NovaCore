@@ -145,7 +145,7 @@ class AgentTool:
             child_registry = (
                 build_agent_registry(
                     self.parent_agent.registry,
-                    definition.tools,
+                    definition,
                 )
             )
         except AgentToolFilterError as exc:
@@ -169,6 +169,13 @@ class AgentTool:
                 self.parent_agent.permission_checker
             ),
             max_iterations=definition.max_turns,
+            trace_manager=(
+                self.parent_agent.trace_manager
+            ),
+            agent_type=definition.agent_type,
+            parent_trace=(
+                self.parent_agent.current_trace
+            ),
         )
 
         conversation = ConversationManager()

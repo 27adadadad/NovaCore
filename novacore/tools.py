@@ -717,6 +717,13 @@ class ToolRegistry:
 
     def get(self, name:str)-> Tool | None:
         return self._tools.get(name)
+
+    def list_tools(
+        self,
+    ) -> list[Tool]:
+        return list(
+            self._tools.values()
+        )
     
     def get_all_schemas(self)->list[dict[str, Any]]:
         return [tool.get_schema() for tool in self._tools.values()]
