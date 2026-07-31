@@ -378,7 +378,16 @@ class Agent:
                 status="failed",
             )
 
+
+
             raise RuntimeError("Agent reached maximum iterations")
+
+        except asyncio.CancelledError:
+            self.trace_manager.complete(
+                trace.agent_id,
+                status="cancelled",
+            )
+            raise
 
         finally:
             if trace.end_time is None:
@@ -521,6 +530,13 @@ class Agent:
                     f"({self.max_iterations})"
                 )
             )
+
+        except asyncio.CancelledError:
+            self.trace_manager.complete(
+                trace.agent_id,
+                status="cancelled",
+            )
+            raise
 
         finally:
             if trace.end_time is None:

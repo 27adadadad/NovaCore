@@ -19,6 +19,15 @@ from novacore.agents.tool_filter import (
     AgentToolFilterError,
     build_agent_registry,
 )
+from novacore.agents.task_manager import (
+    BackgroundTask,
+    TaskManager,
+    TaskStatus,
+)
+from novacore.agents.notification import (
+    format_task_notification,
+    inject_task_notifications,
+)
 
 __all__ = [
     "AgentDef",
@@ -33,4 +42,9 @@ __all__ = [
     "TraceManager",
     "TraceNode",
     "TraceStatus",
+    "BackgroundTask",
+    "TaskManager",
+    "TaskStatus",
+    "format_task_notification",
+    "inject_task_notifications",
 ]

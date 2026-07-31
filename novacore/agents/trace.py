@@ -11,11 +11,13 @@ TraceStatus = Literal[
     "running",
     "completed",
     "failed",
+    "cancelled",
 ]
 
 FinalTraceStatus = Literal[
     "completed",
     "failed",
+    "cancelled",
 ]
 
 

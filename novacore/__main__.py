@@ -40,6 +40,8 @@ from novacore.skills import (
 from novacore.agents import (
     AgentLoader,
     AgentTool,
+    TaskManager,
+    inject_task_notifications,
 )
 
 def parse_args()->argparse.Namespace:
@@ -131,10 +133,12 @@ async def main()->None:
         context_window=config.context_window,
         permission_checker=permission_checker,
     ) 
+    task_manager = TaskManager()
     registry.register(
         AgentTool(
             loader=agent_loader,
             parent_agent=agent,
+            task_manager=task_manager,
         )
     )
 
@@ -175,6 +179,126 @@ async def main()->None:
         )
         session.append_record(record)
 
+    async def wait_and_inject_task_notifications(
+    ) -> bool:
+        await task_manager.wait_all()
+
+        completed_tasks = (
+            task_manager.poll_completed()
+        )
+
+        if not completed_tasks:
+            return False
+
+        inject_task_notifications(
+            conversation,
+            completed_tasks,
+        )
+
+        for task in completed_tasks:
+            print(
+                (
+                    f"[task] {task.task_id} "
+                    f"{task.name}: {task.status}"
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+
+        return True
+
+    async def run_streaming_prompt(
+        prompt: str,
+    ) -> None:
+
+        async for event in agent.stream_to_completion(
+            prompt,
+            conversation=conversation,
+        ):
+            if isinstance(event, StreamText):
+                print(
+                    event.text,
+                    end="",
+                    flush=True,
+                )
+
+            elif isinstance(event, ToolUseEvent):
+                print(
+                    f"\n[tool] calling {event.tool_name}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            elif isinstance(event, PermissionRequest):
+                print(
+                    (
+                        f"\n[permission] {event.description}\n"
+                        f"Reason: {event.reason}\n"
+                        "Allow? [y/N]: "
+                    ),
+                    end="",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+                answer = await asyncio.to_thread(
+                    sys.stdin.readline
+                )
+                answer = answer.strip().lower()
+
+                response = (
+                    PermissionResponse.ALLOW
+                    if answer in {"y", "yes"}
+                    else PermissionResponse.DENY
+                )
+
+                if not event.future.done():
+                    event.future.set_result(response)
+
+
+            elif isinstance(event, ToolResultEvent):
+                status = "failed" if event.is_error else "completed"
+
+                print(
+                    f"[tool] {event.tool_name} {status}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            elif isinstance(event, CompactNotification):
+                if event.boundary is not None:
+                    save_compact_boundary(
+                        event.boundary
+                    )
+
+                print(
+                    f"\n[context] {event.message}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            elif isinstance(event, TurnComplete):
+                print(
+                    f"[turn] {event.turn} completed",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            elif isinstance(event, LoopComplete):
+                print(
+                    f"\n[done] {event.total_turns} turn(s)",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+            elif isinstance(event, ErrorEvent):
+                print(
+                    f"\n[error] {event.message}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+        print()
+
     try:
         if args.mcp_config is not None:
             server_configs = (
@@ -205,98 +329,25 @@ async def main()->None:
                 agent,
                 conversation,
                 session,
+                task_manager,
             )
             return
 
 
         if args.stream:
-            async for event in agent.stream_to_completion(
-                args.prompt,
-                conversation=conversation,
+            await run_streaming_prompt(
+                args.prompt
+            )
+
+            while (
+                await wait_and_inject_task_notifications()
             ):
-                if isinstance(event, StreamText):
-                    print(
-                        event.text,
-                        end="",
-                        flush=True,
+                await run_streaming_prompt(
+                    (
+                        "请根据上面的后台任务通知，"
+                        "继续完成当前任务。"
                     )
-
-                elif isinstance(event, ToolUseEvent):
-                    print(
-                        f"\n[tool] calling {event.tool_name}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                elif isinstance(event, PermissionRequest):
-                    print(
-                        (
-                            f"\n[permission] {event.description}\n"
-                            f"Reason: {event.reason}\n"
-                            "Allow? [y/N]: "
-                        ),
-                        end="",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                    answer = await asyncio.to_thread(
-                        sys.stdin.readline
-                    )
-                    answer = answer.strip().lower()
-
-                    response = (
-                        PermissionResponse.ALLOW
-                        if answer in {"y", "yes"}
-                        else PermissionResponse.DENY
-                    )
-
-                    if not event.future.done():
-                        event.future.set_result(response)
-
-
-                elif isinstance(event, ToolResultEvent):
-                    status = "failed" if event.is_error else "completed"
-
-                    print(
-                        f"[tool] {event.tool_name} {status}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                elif isinstance(event, CompactNotification):
-                    if event.boundary is not None:
-                        save_compact_boundary(
-                            event.boundary
-                        )
-
-                    print(
-                        f"\n[context] {event.message}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                elif isinstance(event, TurnComplete):
-                    print(
-                        f"[turn] {event.turn} completed",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                elif isinstance(event, LoopComplete):
-                    print(
-                        f"\n[done] {event.total_turns} turn(s)",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-
-                elif isinstance(event, ErrorEvent):
-                    print(
-                        f"\n[error] {event.message}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-            print()
+                )
 
         else:
             answer = await agent.run_to_completion(
@@ -306,11 +357,27 @@ async def main()->None:
             )
             print(answer)
 
+            while (
+                await wait_and_inject_task_notifications()
+            ):
+                answer = await agent.run_to_completion(
+                    (
+                        "请根据上面的后台任务通知，"
+                        "继续完成当前任务。"
+                    ),
+                    conversation=conversation,
+                    on_compact=save_compact_boundary,
+                )
+                print(answer)
+
     finally:
         try:
-            await mcp_manager.close()
+            await task_manager.shutdown()
         finally:
-            session.close()
+            try:
+                await mcp_manager.close()
+            finally:
+                session.close()
 
 if __name__ == "__main__":
         asyncio.run(main())

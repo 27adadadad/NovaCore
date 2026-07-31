@@ -16,10 +16,14 @@ from novacore.tools import (
     ToolCategory,
     ToolResult,
 )
-
+from novacore.permissions import (
+    PermissionChecker,
+    PermissionMode,
+)
 
 if TYPE_CHECKING:
     from novacore.agent import Agent
+    from novacore.agents.task_manager import TaskManager
 
 
 class AgentToolParams(BaseModel):
@@ -34,6 +38,14 @@ class AgentToolParams(BaseModel):
         min_length=1,
         description=(
             "交给子 Agent 完成的具体任务"
+        ),
+    )
+
+    run_in_background: bool = Field(
+        default=False,
+        description=(
+            "是否在后台运行。"
+            "后台运行时，当前 Agent 不等待子 Agent 结束"
         ),
     )
 
@@ -53,9 +65,11 @@ class AgentTool:
         self,
         loader: AgentLoader,
         parent_agent: Agent,
+        task_manager: TaskManager,
     ) -> None:
         self.loader = loader
         self.parent_agent = parent_agent
+        self.task_manager = task_manager
 
     def get_schema(
         self,
@@ -141,6 +155,11 @@ class AgentTool:
                 is_error=True,
             )
 
+        run_in_background = (
+            params.run_in_background
+            or definition.background
+        )
+
         try:
             child_registry = (
                 build_agent_registry(
@@ -159,6 +178,24 @@ class AgentTool:
 
         from novacore.agent import Agent
 
+        child_permission_checker = (
+            PermissionChecker(
+                detector=(
+                    self.parent_agent
+                    .permission_checker
+                    .detector
+                ),
+                sandbox=(
+                    self.parent_agent
+                    .permission_checker
+                    .sandbox
+                ),
+                mode=PermissionMode(
+                    definition.permission_mode
+                ),
+            )
+        )
+
         child_agent = Agent(
             client=self.parent_agent.client,
             registry=child_registry,
@@ -166,7 +203,7 @@ class AgentTool:
                 self.parent_agent.context_window
             ),
             permission_checker=(
-                self.parent_agent.permission_checker
+                child_permission_checker
             ),
             max_iterations=definition.max_turns,
             trace_manager=(
@@ -183,6 +220,22 @@ class AgentTool:
         conversation.add_system_message(
             definition.system_prompt
         )
+
+        if run_in_background:
+            task_id = self.task_manager.launch(
+                agent=child_agent,
+                conversation=conversation,
+                prompt=prompt,
+                name=definition.agent_type,
+            )
+
+            return ToolResult(
+                output=(
+                    f"[{definition.agent_type} "
+                    f"子 Agent 已在后台启动]\n"
+                    f"task_id: {task_id}"
+                )
+            )
 
         try:
             result = await (

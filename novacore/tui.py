@@ -30,7 +30,10 @@ from novacore.commands import (
 from novacore.context import (
     compact_conversation,
 )
-
+from novacore.agents import (
+    TaskManager,
+    inject_task_notifications,
+)
 import asyncio
 
 class NovaCoreApp(App[None]):
@@ -94,20 +97,27 @@ class NovaCoreApp(App[None]):
         agent:Agent,
         conversation:ConversationManager,
         session:Session,
+        task_manager:TaskManager,
     )->None:
         super().__init__()
         self.agent=agent
         self.conversation = conversation
         self.session = session
+        self.task_manager = task_manager
         self.command_registry = CommandRegistry()
 
         self.command_context=CommandContext(
             conversation=self.conversation,
             session_id=self.session.session_id,
             compact=self._compact_context,
+            task_manager=self.task_manager,
+
         )
 
         self._active_task:asyncio.Task[None] | None = None
+        self._notification_poll_task: (
+            asyncio.Task[None] | None
+        ) = None
         self._pending_permission: PermissionRequest | None = None
         self._permission_panel:Vertical | None = None
 
@@ -122,6 +132,46 @@ class NovaCoreApp(App[None]):
             placeholder="Enter a prompt",
             id="prompt",
         )
+
+    def on_mount(self) -> None:
+        self._notification_poll_task = (
+            asyncio.create_task(
+                self._poll_task_notifications()
+            )
+        )
+
+    async def on_unmount(self) -> None:
+        poll_task = (
+            self._notification_poll_task
+        )
+
+        if poll_task is not None:
+            poll_task.cancel()
+
+        active_task = self._active_task
+        if (
+            active_task is not None
+            and not active_task.done()
+        ):
+            active_task.cancel()
+
+        tasks = [
+            task
+            for task in (
+                poll_task,
+                active_task,
+            )
+            if task is not None
+        ]
+
+        if tasks:
+            await asyncio.gather(
+                *tasks,
+                return_exceptions=True,
+            )
+
+        self._notification_poll_task = None
+        self._active_task = None
 
     async def on_input_submitted(
         self,
@@ -299,6 +349,70 @@ class NovaCoreApp(App[None]):
             self._active_task = None
             chat.scroll_end(animate=False)
 
+    async def _poll_task_notifications(
+        self,
+    ) -> None:
+        while True:
+            await asyncio.sleep(2)
+
+            await self._process_task_notifications()
+
+    async def _process_task_notifications(
+        self,
+    ) -> None:
+        if (
+            self._active_task is not None
+            and not self._active_task.done()
+        ):
+            return
+
+        completed_tasks = (
+            self.task_manager.poll_completed()
+        )
+
+        if not completed_tasks:
+            return
+
+        inject_task_notifications(
+            self.conversation,
+            completed_tasks,
+        )
+
+        chat = self.query_one(
+            "#chat",
+            VerticalScroll,
+        )
+
+        prompt_input = self.query_one(
+            "#prompt",
+            Input,
+        )
+
+        prompt_input.disabled = True
+
+        for task in completed_tasks:
+            await chat.mount(
+                Static(
+                    (
+                        f"[Task] {task.task_id} "
+                        f"{task.name}: {task.status}"
+                    ),
+                    classes="system-message",
+                    markup=False,
+                )
+            )
+
+        chat.scroll_end(animate=False)
+
+        self._active_task = asyncio.create_task(
+            self._run_agent(
+                (
+                    "请根据上面的后台任务通知，"
+                    "继续完成当前任务。"
+                )
+            )
+        )
+
     async def _run_agent(
         self,
         prompt:str,
@@ -460,9 +574,11 @@ async def run_tui(
     agent:Agent,
     conversation:ConversationManager,
     session:Session,
+    task_manager:TaskManager,
 )->None:
     await NovaCoreApp(
         agent,
         conversation,
         session,
+        task_manager,
     ).run_async()
