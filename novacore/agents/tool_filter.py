@@ -19,6 +19,19 @@ class AgentToolFilterError(ValueError):
     """子 Agent 的工具配置不合法。"""
 
 
+def build_fork_registry(
+    parent_registry: ToolRegistry,
+) -> ToolRegistry:
+    child_registry = ToolRegistry()
+
+    for tool in parent_registry.list_tools():
+        if tool.name in ALWAYS_DISALLOWED_TOOLS:
+            continue
+
+        child_registry.register(tool)
+
+    return child_registry
+
 
 def build_agent_registry(
     parent_registry: ToolRegistry,

@@ -155,6 +155,7 @@ class Agent:
         self.agent_type = agent_type
         self.parent_trace = parent_trace
         self.current_trace: TraceNode | None = None
+        self._current_conversation: ConversationManager | None = None
 
     def _start_trace(
         self,
@@ -304,7 +305,10 @@ class Agent:
         trace = self._start_trace()
 
         try:
-            conversation = conversation or ConversationManager()
+            if conversation is None:
+                conversation = ConversationManager()
+
+            self._current_conversation = conversation
             conversation.add_user_message(prompt)
 
             for _iteration in range(self.max_iterations):
@@ -390,6 +394,9 @@ class Agent:
             raise
 
         finally:
+            if self._current_conversation is conversation:
+                self._current_conversation = None
+
             if trace.end_time is None:
                 self.trace_manager.complete(
                     trace.agent_id,
@@ -406,7 +413,10 @@ class Agent:
 
         try:
 
-            conversation = conversation or ConversationManager()
+            if conversation is None:
+                conversation = ConversationManager()
+
+            self._current_conversation = conversation
             conversation.add_user_message(prompt)
 
             for _iteration in range(self.max_iterations):
@@ -539,6 +549,9 @@ class Agent:
             raise
 
         finally:
+            if self._current_conversation is conversation:
+                self._current_conversation = None
+
             if trace.end_time is None:
                 self.trace_manager.complete(
                     trace.agent_id,

@@ -18,6 +18,7 @@ from novacore.agents.tool import (
 from novacore.agents.tool_filter import (
     AgentToolFilterError,
     build_agent_registry,
+    build_fork_registry,
 )
 from novacore.agents.task_manager import (
     BackgroundTask,
@@ -27,6 +28,11 @@ from novacore.agents.task_manager import (
 from novacore.agents.notification import (
     format_task_notification,
     inject_task_notifications,
+)
+from novacore.agents.fork import (
+    ForkError,
+    build_fork_prompt,
+    build_forked_conversation,
 )
 
 __all__ = [
@@ -47,4 +53,8 @@ __all__ = [
     "TaskStatus",
     "format_task_notification",
     "inject_task_notifications",
+    "ForkError",
+    "build_fork_prompt",
+    "build_forked_conversation",
+    "build_fork_registry",
 ]

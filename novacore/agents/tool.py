@@ -5,10 +5,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field
 
 from novacore.agents.loader import AgentLoader
-from novacore.agents.tool_filter import (
-    AgentToolFilterError,
-    build_agent_registry,
-)
+
 from novacore.conversation import (
     ConversationManager,
 )
@@ -25,12 +22,25 @@ if TYPE_CHECKING:
     from novacore.agent import Agent
     from novacore.agents.task_manager import TaskManager
 
+from novacore.agents.tool_filter import (
+    AgentToolFilterError,
+    build_agent_registry,
+    build_fork_registry,
+)
+from novacore.agents.fork import (
+    ForkError,
+    build_fork_prompt,
+    build_forked_conversation,
+)
+
 
 class AgentToolParams(BaseModel):
-    subagent_type: str = Field(
+    subagent_type: str | None = Field(
+        default=None,
         min_length=1,
         description=(
-            "需要启动的子 Agent 类型"
+            "预定义子 Agent 类型。"
+            "省略时复制当前会话并创建 fork"
         ),
     )
 
@@ -53,9 +63,9 @@ class AgentTool:
     name = "Agent"
 
     description = (
-        "启动一个预定义的子 Agent，"
-        "让它在独立对话中完成任务，"
-        "并返回最终结果"
+        "启动一个预定义的子 Agent；"
+        "省略 subagent_type 时，"
+        "复制当前会话并在后台启动 fork"
     )
 
     category: ToolCategory = "command"
@@ -115,20 +125,128 @@ class AgentTool:
             },
         }
 
+    async def _execute_fork(
+        self,
+        prompt: str,
+    ) -> ToolResult:
+        parent_conversation = (
+            self.parent_agent
+            ._current_conversation
+        )
+
+        if parent_conversation is None:
+            return ToolResult(
+                output=(
+                    "无法创建 fork："
+                    "父 Agent 当前没有活动会话"
+                ),
+                is_error=True,
+            )
+
+        try:
+            conversation = (
+                build_forked_conversation(
+                    parent_conversation
+                )
+            )
+
+            fork_prompt = build_fork_prompt(
+                prompt
+            )
+
+        except ForkError as exc:
+            return ToolResult(
+                output=f"Fork 创建失败：{exc}",
+                is_error=True,
+            )
+
+        from novacore.agent import Agent
+
+        child_registry = build_fork_registry(
+            self.parent_agent.registry
+        )
+
+        child_permission_checker = (
+            PermissionChecker(
+                detector=(
+                    self.parent_agent
+                    .permission_checker
+                    .detector
+                ),
+                sandbox=(
+                    self.parent_agent
+                    .permission_checker
+                    .sandbox
+                ),
+                mode=(
+                    self.parent_agent
+                    .permission_checker
+                    .mode
+                ),
+            )
+        )
+
+        child_agent = Agent(
+            client=self.parent_agent.client,
+            registry=child_registry,
+            context_window=(
+                self.parent_agent.context_window
+            ),
+            permission_checker=(
+                child_permission_checker
+            ),
+            max_iterations=(
+                self.parent_agent.max_iterations
+            ),
+            trace_manager=(
+                self.parent_agent.trace_manager
+            ),
+            agent_type="fork",
+            parent_trace=(
+                self.parent_agent.current_trace
+            ),
+        )
+
+        task_id = self.task_manager.launch(
+            agent=child_agent,
+            conversation=conversation,
+            prompt=fork_prompt,
+            name="fork",
+        )
+
+        return ToolResult(
+            output=(
+                "[fork 子 Agent 已在后台启动]\n"
+                f"task_id: {task_id}"
+            )
+        )
+
     async def execute(
         self,
         params: AgentToolParams,
     ) -> ToolResult:
+        prompt = params.prompt.strip()
+
+        if not prompt:
+            return ToolResult(
+                output="prompt 不能为空",
+                is_error=True,
+            )
+
+        if params.subagent_type is None:
+            return await self._execute_fork(
+                prompt
+            )
+
         subagent_type = (
             params.subagent_type.strip()
         )
-        prompt = params.prompt.strip()
 
-        if not subagent_type or not prompt:
+        if not subagent_type:
             return ToolResult(
                 output=(
-                    "subagent_type 和 prompt "
-                    "不能为空"
+                    "subagent_type "
+                    "不能是空字符串"
                 ),
                 is_error=True,
             )
