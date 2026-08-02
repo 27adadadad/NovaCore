@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 import asyncio
 from enum import Enum
+from copy import deepcopy
 from novacore.client import StreamEvent
 
 from novacore.client import (
@@ -26,6 +27,11 @@ from novacore.context import compact_conversation, CompactBoundary
 from novacore.agents.trace import (
     TraceManager,
     TraceNode,
+)
+from novacore.hooks import (
+    HookContext,
+    HookEngine,
+    HookEvent,
 )
 
 @dataclass 
@@ -137,7 +143,9 @@ class Agent:
         trace_manager: TraceManager | None = None,
         agent_type: str = "main",
         parent_trace: TraceNode | None = None,
-    )->None:
+        # 允许父 Agent 把已有的 HookEngine 传给子 Agent。
+        hook_engine: HookEngine | None = None,
+    ) -> None:
         self.client = client
         self.registry = registry
         self.context_window = context_window
@@ -156,6 +164,12 @@ class Agent:
         self.parent_trace = parent_trace
         self.current_trace: TraceNode | None = None
         self._current_conversation: ConversationManager | None = None
+        # 未传入时，为当前主 Agent 创建独立的 HookEngine。
+        self.hook_engine = (
+            hook_engine
+            if hook_engine is not None
+            else HookEngine()
+        )
 
     def _start_trace(
         self,
@@ -224,6 +238,55 @@ class Agent:
         return await self.registry.execute(
             tool_call.tool_name,
             tool_call.arguments,
+        )
+
+    # 根据当前 Trace、轮次和工具数据创建 Hook 事件上下文。
+    def _build_hook_context(
+        self,
+        event: HookEvent,
+        trace: TraceNode,
+        turn: int,
+        tool_call: ToolCall | None = None,
+        tool_result: ToolResult | None = None,
+    ) -> HookContext:
+        return HookContext(
+            event=event,
+
+            # Trace 字段用于区分父 Agent、子 Agent和调用链。
+            agent_id=trace.agent_id,
+            agent_type=trace.agent_type,
+            parent_id=trace.parent_id,
+            trace_id=trace.trace_id,
+            turn=turn,
+
+            # 非工具事件没有 tool_call，因此使用空值。
+            tool_id=(
+                tool_call.tool_id
+                if tool_call is not None
+                else ""
+            ),
+            tool_name=(
+                tool_call.tool_name
+                if tool_call is not None
+                else ""
+            ),
+            tool_arguments=(
+                deepcopy(tool_call.arguments)
+                if tool_call is not None
+                else {}
+            ),
+
+            # PRE_TOOL_USE 没有结果；POST_TOOL_USE 才传入结果。
+            tool_output=(
+                tool_result.output
+                if tool_result is not None
+                else ""
+            ),
+            tool_is_error=(
+                tool_result.is_error
+                if tool_result is not None
+                else False
+            ),
         )
     
     async def _execute_tool_interactive(
@@ -312,6 +375,15 @@ class Agent:
             conversation.add_user_message(prompt)
 
             for _iteration in range(self.max_iterations):
+                # 每轮模型调用开始前触发 TURN_START。
+                await self.hook_engine.emit(
+                    self._build_hook_context(
+                        event=HookEvent.TURN_START,
+                        trace=trace,
+                        turn=_iteration + 1,
+                    )
+                )
+
                 compact_event = await compact_conversation(
                     conversation,
                     self.client,
@@ -345,6 +417,16 @@ class Agent:
 
                 if not response.tool_calls:
                     conversation.add_assistant_message(response.text)
+
+                    # 最终助手消息保存后，本轮处理结束。
+                    await self.hook_engine.emit(
+                        self._build_hook_context(
+                            event=HookEvent.TURN_END,
+                            trace=trace,
+                            turn=_iteration + 1,
+                        )
+                    )
+
                     self.trace_manager.complete(
                         trace.agent_id
                     )
@@ -364,9 +446,44 @@ class Agent:
                 tool_results:list[ToolResultBlock]=[]
 
                 for tool_call in response.tool_calls:
-                    result = await self._execute_tool_noninteractive(
-                        tool_call
+                    # 在权限检查和工具执行前触发 Hook。
+                    hook_result = await self.hook_engine.emit(
+                        self._build_hook_context(
+                            event=HookEvent.PRE_TOOL_USE,
+                            trace=trace,
+                            turn=_iteration + 1,
+                            tool_call=tool_call,
+                        )
                     )
+
+                    # Hook 明确拒绝时，不再检查权限，也不执行工具。
+                    if hook_result.decision == "reject":
+                        result = ToolResult(
+                            output=(
+                                "Tool call rejected by Hook: "
+                                f"{hook_result.reason or 'no reason provided'}"
+                            ),
+                            is_error=True,
+                        )
+                    else:
+                        # Hook 没有拒绝，继续原来的权限及工具执行流程。
+                        result = await (
+                            self._execute_tool_noninteractive(
+                                tool_call
+                            )
+                        )
+
+                    # 只有真正进入工具执行流程后才触发 POST_TOOL_USE。
+                    if hook_result.decision != "reject":
+                        await self.hook_engine.emit(
+                            self._build_hook_context(
+                                event=HookEvent.POST_TOOL_USE,
+                                trace=trace,
+                                turn=_iteration + 1,
+                                tool_call=tool_call,
+                                tool_result=result,
+                            )
+                        )
 
                     tool_results.append(
                         ToolResultBlock(
@@ -376,6 +493,15 @@ class Agent:
                         )
                     )
                 conversation.add_tool_results_message(tool_results)
+
+                # 工具结果保存后，本轮处理结束。
+                await self.hook_engine.emit(
+                    self._build_hook_context(
+                        event=HookEvent.TURN_END,
+                        trace=trace,
+                        turn=_iteration + 1,
+                    )
+                )
 
             self.trace_manager.complete(
                 trace.agent_id,
@@ -420,6 +546,15 @@ class Agent:
             conversation.add_user_message(prompt)
 
             for _iteration in range(self.max_iterations):
+                # 流式模式也必须触发相同的 TURN_START。
+                await self.hook_engine.emit(
+                    self._build_hook_context(
+                        event=HookEvent.TURN_START,
+                        trace=trace,
+                        turn=_iteration + 1,
+                    )
+                )
+
                 compact_event = await compact_conversation(
                     conversation,
                     self.client,
@@ -464,6 +599,15 @@ class Agent:
                 if not response.tool_calls:
                     conversation.add_assistant_message(response.text)
 
+                    # 最终助手消息保存后，本轮处理结束。
+                    await self.hook_engine.emit(
+                        self._build_hook_context(
+                            event=HookEvent.TURN_END,
+                            trace=trace,
+                            turn=_iteration + 1,
+                        )
+                    )
+
                     self.trace_manager.complete(
                         trace.agent_id
                     )
@@ -490,21 +634,62 @@ class Agent:
                 tool_results:list[ToolResultBlock] = []
 
                 for tool_call in response.tool_calls:
-                    result : ToolResult | None = None
+                    # 在权限询问和工具执行前触发 Hook。
+                    hook_result = await self.hook_engine.emit(
+                        self._build_hook_context(
+                            event=HookEvent.PRE_TOOL_USE,
+                            trace=trace,
+                            turn=_iteration + 1,
+                            tool_call=tool_call,
+                        )
+                    )
 
-                    async for item in self._execute_tool_interactive(
-                        tool_call
-                    ):
-                        if isinstance(item, PermissionRequest):
-                            yield item
-                        else:result = item
+                    result: ToolResult | None = None
 
+                    # Hook 拒绝时，不再产生 PermissionRequest。
+                    if hook_result.decision == "reject":
+                        result = ToolResult(
+                            output=(
+                                "Tool call rejected by Hook: "
+                                f"{hook_result.reason or 'no reason provided'}"
+                            ),
+                            is_error=True,
+                        )
+                    else:
+                        # Hook 允许后，继续原来的交互式权限流程。
+                        async for item in (
+                            self._execute_tool_interactive(
+                                tool_call
+                            )
+                        ):
+                            if isinstance(
+                                item,
+                                PermissionRequest,
+                            ):
+                                yield item
+                            else:
+                                result = item
+
+                    # 防止工具执行流程没有产生 ToolResult。
                     if result is None:
                         result = ToolResult(
-                            output = ("Error :tool produced no result"),
+                            output=(
+                                "Error: tool produced no result"
+                            ),
                             is_error=True,
                         )
 
+                    # 工具产生结果后触发 POST_TOOL_USE。
+                    if hook_result.decision != "reject":
+                        await self.hook_engine.emit(
+                            self._build_hook_context(
+                                event=HookEvent.POST_TOOL_USE,
+                                trace=trace,
+                                turn=_iteration + 1,
+                                tool_call=tool_call,
+                                tool_result=result,
+                            )
+                        )
 
                     yield ToolResultEvent(
                         tool_id = tool_call.tool_id,
@@ -523,6 +708,15 @@ class Agent:
 
                 conversation.add_tool_results_message(
                     tool_results
+                )
+
+                # 工具结果保存后，本轮处理结束。
+                await self.hook_engine.emit(
+                    self._build_hook_context(
+                        event=HookEvent.TURN_END,
+                        trace=trace,
+                        turn=_iteration + 1,
+                    )
                 )
 
                 yield TurnComplete(

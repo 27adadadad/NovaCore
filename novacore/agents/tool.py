@@ -205,6 +205,10 @@ class AgentTool:
             parent_trace=(
                 self.parent_agent.current_trace
             ),
+            # 父子 Agent 共享同一个 HookEngine。
+            hook_engine=(
+                self.parent_agent.hook_engine
+            ),
         )
 
         task_id = self.task_manager.launch(
@@ -330,6 +334,10 @@ class AgentTool:
             agent_type=definition.agent_type,
             parent_trace=(
                 self.parent_agent.current_trace
+            ),
+            # 父子 Agent 共享同一个 HookEngine。
+            hook_engine=(
+                self.parent_agent.hook_engine
             ),
         )
 
