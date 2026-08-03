@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
@@ -11,16 +12,25 @@ from novacore.conversation import (
 )
 from novacore.tools import (
     ToolCategory,
+    ToolRegistry,
     ToolResult,
+    create_worktree_registry,
 )
 from novacore.permissions import (
     PermissionChecker,
     PermissionMode,
 )
+from novacore.path_sandbox import PathSandbox
+from novacore.worktree import (
+    WorktreeError,
+    generate_worktree_name,
+)
 
 if TYPE_CHECKING:
     from novacore.agent import Agent
+    from novacore.agents.parser import AgentDef
     from novacore.agents.task_manager import TaskManager
+    from novacore.worktree import WorktreeManager
 
 from novacore.agents.tool_filter import (
     AgentToolFilterError,
@@ -76,10 +86,244 @@ class AgentTool:
         loader: AgentLoader,
         parent_agent: Agent,
         task_manager: TaskManager,
+        worktree_manager: WorktreeManager | None = None,
     ) -> None:
         self.loader = loader
         self.parent_agent = parent_agent
         self.task_manager = task_manager
+        self.worktree_manager = worktree_manager
+
+    def _build_worktree_dependencies(
+        self,
+        definition: AgentDef,
+        worktree_path: str | Path,
+    ) -> tuple[ToolRegistry, PermissionChecker]:
+        """为 Worktree 子 Agent 创建独立工具和权限边界。"""
+
+        safe_registry = create_worktree_registry(
+            worktree_path
+        )
+        child_registry = build_agent_registry(
+            safe_registry,
+            definition,
+        )
+        child_permission_checker = (
+            PermissionChecker(
+                detector=(
+                    self.parent_agent
+                    .permission_checker
+                    .detector
+                ),
+                sandbox=PathSandbox(
+                    worktree_path
+                ),
+                mode=PermissionMode(
+                    definition.permission_mode
+                ),
+                enforce_sandbox=True,
+            )
+        )
+
+        return (
+            child_registry,
+            child_permission_checker,
+        )
+
+    async def _run_worktree_child(
+        self,
+        definition: AgentDef,
+        prompt: str,
+        child_registry: ToolRegistry,
+        child_permission_checker: PermissionChecker,
+    ) -> ToolResult:
+        """构造并运行 Worktree 子 Agent。"""
+
+        try:
+            from novacore.agent import Agent
+
+            child_agent = Agent(
+                client=self.parent_agent.client,
+                registry=child_registry,
+                context_window=(
+                    self.parent_agent
+                    .context_window
+                ),
+                permission_checker=(
+                    child_permission_checker
+                ),
+                max_iterations=(
+                    definition.max_turns
+                ),
+                trace_manager=(
+                    self.parent_agent
+                    .trace_manager
+                ),
+                agent_type=(
+                    definition.agent_type
+                ),
+                parent_trace=(
+                    self.parent_agent
+                    .current_trace
+                ),
+                # 父子 Agent 共享同一个 HookEngine。
+                hook_engine=(
+                    self.parent_agent
+                    .hook_engine
+                ),
+            )
+
+            conversation = ConversationManager()
+            conversation.add_system_message(
+                definition.system_prompt
+            )
+            conversation.add_system_message(
+                (
+                    "你正在隔离的 Git Worktree "
+                    "中运行。所有文件工具都以该 "
+                    "Worktree 为根目录，只使用其"
+                    "内部路径。"
+                )
+            )
+
+            result = await (
+                child_agent.run_to_completion(
+                    prompt,
+                    conversation=conversation,
+                )
+            )
+        except Exception as exc:
+            return ToolResult(
+                output=(
+                    "Worktree 子 Agent "
+                    f"执行失败：{exc}"
+                ),
+                is_error=True,
+            )
+
+        return ToolResult(
+            output=(
+                f"[{definition.agent_type} "
+                "Worktree 子 Agent 结果]\n"
+                f"{result}"
+            )
+        )
+
+    async def _execute_with_worktree(
+        self,
+        definition: AgentDef,
+        prompt: str,
+        run_in_background: bool,
+    ) -> ToolResult:
+        """在临时 Worktree 中运行前台预定义子 Agent。"""
+
+        if run_in_background:
+            return ToolResult(
+                output=(
+                    "Worktree 隔离暂时只支持"
+                    "前台预定义子 Agent"
+                ),
+                is_error=True,
+            )
+
+        if self.worktree_manager is None:
+            return ToolResult(
+                output=(
+                    "Worktree 隔离不可用："
+                    "未配置 WorktreeManager"
+                ),
+                is_error=True,
+            )
+
+        worktree_name = generate_worktree_name(
+            definition.agent_type
+        )
+
+        try:
+            worktree = (
+                await self.worktree_manager.create(
+                    worktree_name
+                )
+            )
+        except WorktreeError as exc:
+            return ToolResult(
+                output=(
+                    "Worktree 创建失败："
+                    f"{exc}"
+                ),
+                is_error=True,
+            )
+
+        execution_result: ToolResult
+        cleanup_result = None
+        cleanup_error: str | None = None
+
+        try:
+            try:
+                (
+                    child_registry,
+                    child_permission_checker,
+                ) = self._build_worktree_dependencies(
+                    definition,
+                    worktree.path,
+                )
+            except (
+                AgentToolFilterError,
+                ValueError,
+            ) as exc:
+                execution_result = ToolResult(
+                    output=(
+                        "Worktree 子 Agent "
+                        f"准备失败：{exc}"
+                    ),
+                    is_error=True,
+                )
+            else:
+                execution_result = (
+                    await self._run_worktree_child(
+                        definition,
+                        prompt,
+                        child_registry,
+                        child_permission_checker,
+                    )
+                )
+        finally:
+            try:
+                cleanup_result = (
+                    await self.worktree_manager.cleanup(
+                        worktree.name
+                    )
+                )
+            except WorktreeError as exc:
+                cleanup_error = str(exc)
+
+        if cleanup_error is not None:
+            execution_result.output += (
+                "\n\n[Worktree 清理失败]\n"
+                f"path: {worktree.path}\n"
+                f"branch: {worktree.branch}\n"
+                f"reason: {cleanup_error}"
+            )
+        elif (
+            cleanup_result is not None
+            and not cleanup_result.worktree_removed
+        ):
+            execution_result.output += (
+                "\n\n[Worktree 已保留]\n"
+                f"path: {worktree.path}\n"
+                f"branch: {worktree.branch}\n"
+                f"reason: {cleanup_result.reason}"
+            )
+        elif (
+            cleanup_result is not None
+            and not cleanup_result.branch_removed
+        ):
+            execution_result.output += (
+                "\n\n[临时分支已保留]\n"
+                f"branch: {worktree.branch}\n"
+                f"reason: {cleanup_result.reason}"
+            )
+
+        return execution_result
 
     def get_schema(
         self,
@@ -281,6 +525,13 @@ class AgentTool:
             params.run_in_background
             or definition.background
         )
+
+        if definition.isolation == "worktree":
+            return await self._execute_with_worktree(
+                definition,
+                prompt,
+                run_in_background,
+            )
 
         try:
             child_registry = (

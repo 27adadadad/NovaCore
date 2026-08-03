@@ -55,10 +55,12 @@ class PermissionChecker:
         detector:DangerousCommandDetector,
         sandbox:PathSandbox,
         mode: PermissionMode = PermissionMode.DEFAULT,
+        enforce_sandbox: bool = False,
     ) -> None:
         self.detector = detector
         self.sandbox = sandbox
         self.mode = mode
+        self.enforce_sandbox = enforce_sandbox
     
     def check(
         self,
@@ -83,8 +85,11 @@ class PermissionChecker:
                     )
 
         if (
-            self.mode!=PermissionMode.BYPASS
-            and tool.category in ("read", "write")
+            tool.category in ("read", "write")
+            and (
+                self.enforce_sandbox
+                or self.mode != PermissionMode.BYPASS
+            )
         ):
             for path_key in (
                 "file_path",
@@ -108,8 +113,17 @@ class PermissionChecker:
 
                 if not allowed:
                     return Decision(
-                        effect="ask",
-                        reason=reason,
+                        effect=(
+                            "deny"
+                            if self.enforce_sandbox
+                            else "ask"
+                        ),
+                        reason=(
+                            "Strict path sandbox blocked "
+                            f"the request: {reason}"
+                            if self.enforce_sandbox
+                            else reason
+                        ),
                     )
         
         effect = mode_decide(

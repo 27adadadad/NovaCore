@@ -21,6 +21,47 @@ SKIP_SEARCH_DIRS = {
     ".mypy_cache",
 }
 
+
+def _resolve_work_path(
+    work_dir: str | Path,
+    requested_path: str | Path,
+) -> Path:
+    """把工具路径解析到固定工作目录内。"""
+
+    root = (
+        Path(work_dir)
+        .expanduser()
+        .resolve()
+    )
+    candidate = (
+        Path(requested_path)
+        .expanduser()
+    )
+
+    if not candidate.is_absolute():
+        candidate = root / candidate
+
+    try:
+        resolved = candidate.resolve()
+    except (
+        OSError,
+        RuntimeError,
+    ) as exc:
+        raise ValueError(
+            "could not resolve path: "
+            f"{requested_path}"
+        ) from exc
+
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            "path must stay inside work_dir: "
+            f"{requested_path}"
+        ) from exc
+
+    return resolved
+
 @dataclass
 class ToolResult:
     output:str
@@ -129,6 +170,16 @@ class ReadFile:
     category:ToolCategory = "read"
     params_model = ReadFileParams
 
+    def __init__(
+        self,
+        work_dir: str | Path | None = None,
+    ) -> None:
+        self.work_dir = (
+            Path(work_dir).expanduser().resolve()
+            if work_dir is not None
+            else Path.cwd().resolve()
+        )
+
     def get_schema(self)->dict[str, Any]:
         schema = self.params_model.model_json_schema()
         schema.pop("title", None)
@@ -142,7 +193,16 @@ class ReadFile:
         }
     
     async def execute(self, params:ReadFileParams)->ToolResult:
-        path = Path(params.file_path)
+        try:
+            path = _resolve_work_path(
+                self.work_dir,
+                params.file_path,
+            )
+        except ValueError as exc:
+            return ToolResult(
+                output=f"Error reading file: {exc}",
+                is_error=True,
+            )
 
         if not path.exists():
             return ToolResult(
@@ -189,9 +249,9 @@ class Glob:
         work_dir: str | Path | None = None,
     ) -> None:
         self.work_dir = (
-            Path(work_dir).resolve()
+            Path(work_dir).expanduser().resolve()
             if work_dir is not None
-            else Path.cwd()
+            else Path.cwd().resolve()
         )
 
     def get_schema(
@@ -216,19 +276,15 @@ class Glob:
         self,
         params: GlobParams,
     ) -> ToolResult:
-        base = Path(
-            params.path
-        ).expanduser()
-
-        if not base.is_absolute():
-            base = self.work_dir / base
-
         try:
-            base = base.resolve()
-        except OSError as exc:
+            base = _resolve_work_path(
+                self.work_dir,
+                params.path,
+            )
+        except ValueError as exc:
             return ToolResult(
                 output=(
-                    f"Error resolving path: {exc}"
+                    f"Error searching files: {exc}"
                 ),
                 is_error=True,
             )
@@ -364,9 +420,9 @@ class Grep:
         work_dir: str | Path | None = None,
     ) -> None:
         self.work_dir = (
-            Path(work_dir).resolve()
+            Path(work_dir).expanduser().resolve()
             if work_dir is not None
-            else Path.cwd()
+            else Path.cwd().resolve()
         )
 
     def get_schema(
@@ -391,19 +447,15 @@ class Grep:
         self,
         params: GrepParams,
     ) -> ToolResult:
-        base = Path(
-            params.path
-        ).expanduser()
-
-        if not base.is_absolute():
-            base = self.work_dir / base
-
         try:
-            base = base.resolve()
-        except OSError as exc:
+            base = _resolve_work_path(
+                self.work_dir,
+                params.path,
+            )
+        except ValueError as exc:
             return ToolResult(
                 output=(
-                    f"Error resolving path: {exc}"
+                    f"Error searching files: {exc}"
                 ),
                 is_error=True,
             )
@@ -571,6 +623,16 @@ class WriteFile:
     category:ToolCategory = "write"
     params_model = WriteFileParams
 
+    def __init__(
+        self,
+        work_dir: str | Path | None = None,
+    ) -> None:
+        self.work_dir = (
+            Path(work_dir).expanduser().resolve()
+            if work_dir is not None
+            else Path.cwd().resolve()
+        )
+
     def get_schema(self)->dict[str, Any]:
         schema = self.params_model.model_json_schema()
         schema.pop("title", None)
@@ -588,7 +650,17 @@ class WriteFile:
         self, 
         params:WriteFileParams,
     )->ToolResult:
-        path = Path(params.file_path)
+        try:
+            path = _resolve_work_path(
+                self.work_dir,
+                params.file_path,
+            )
+        except ValueError as exc:
+            return ToolResult(
+                output=f"Error writing file: {exc}",
+                is_error=True,
+            )
+
         try:
             path.parent.mkdir(
                 parents=True,
@@ -751,10 +823,48 @@ def create_default_registry(
     work_dir:str | Path | None = None,
 ) -> ToolRegistry:
     registry = ToolRegistry()
-    registry.register(ReadFile())
+    registry.register(
+        ReadFile(work_dir=work_dir)
+    )
     registry.register(Glob(work_dir=work_dir))
     registry.register(Grep(work_dir=work_dir))
-    registry.register(WriteFile())
+    registry.register(
+        WriteFile(work_dir=work_dir)
+    )
     registry.register(Bash(work_dir=work_dir))
+    return registry
+
+
+def create_worktree_registry(
+    work_dir: str | Path,
+) -> ToolRegistry:
+    """创建只包含安全路径工具的独立 Registry。"""
+
+    root = (
+        Path(work_dir)
+        .expanduser()
+        .resolve()
+    )
+
+    if not root.is_dir():
+        raise ValueError(
+            "worktree root must be an "
+            f"existing directory: {root}"
+        )
+
+    registry = ToolRegistry()
+    registry.register(
+        ReadFile(work_dir=root)
+    )
+    registry.register(
+        WriteFile(work_dir=root)
+    )
+    registry.register(
+        Glob(work_dir=root)
+    )
+    registry.register(
+        Grep(work_dir=root)
+    )
+
     return registry
 

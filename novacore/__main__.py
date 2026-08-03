@@ -43,6 +43,7 @@ from novacore.agents import (
     TaskManager,
     inject_task_notifications,
 )
+from novacore.worktree import WorktreeManager
 
 def parse_args()->argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -134,11 +135,15 @@ async def main()->None:
         permission_checker=permission_checker,
     ) 
     task_manager = TaskManager()
+    worktree_manager = WorktreeManager(
+        sandbox.project_root
+    )
     registry.register(
         AgentTool(
             loader=agent_loader,
             parent_agent=agent,
             task_manager=task_manager,
+            worktree_manager=worktree_manager,
         )
     )
 
