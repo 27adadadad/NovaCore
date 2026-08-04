@@ -11,7 +11,10 @@ from typing import (
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
-    from novacore.agent import Agent
+    from novacore.agent import (
+        Agent,
+        CompactCallback,
+    )
     from novacore.conversation import (
         ConversationManager,
     )
@@ -81,6 +84,7 @@ class TaskManager:
         conversation: ConversationManager,
         prompt: str,
         name: str = "",
+        on_compact: CompactCallback | None = None,
     ) -> str:
         task_id = uuid.uuid4().hex[:8]
 
@@ -101,6 +105,7 @@ class TaskManager:
                 task_id,
                 agent,
                 conversation,
+                on_compact,
             )
         )
 
@@ -115,6 +120,7 @@ class TaskManager:
         task_id: str,
         agent: Agent,
         conversation: ConversationManager,
+        on_compact: CompactCallback | None,
     ) -> None:
         record = self._tasks.get(
             task_id
@@ -128,6 +134,7 @@ class TaskManager:
                 agent.run_to_completion(
                     record.prompt,
                     conversation=conversation,
+                    on_compact=on_compact,
                 )
             )
 
