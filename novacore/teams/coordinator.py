@@ -5,22 +5,11 @@ import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from novacore.agent import Agent
 from novacore.agents import (
     AgentLoader,
-    AgentToolFilterError,
     TaskManager,
-    build_agent_registry,
-)
-from novacore.conversation import (
-    ConversationManager,
-    Message,
-)
-from novacore.path_sandbox import PathSandbox
-from novacore.permissions import (
-    PermissionChecker,
-    PermissionMode,
 )
 from novacore.session import Session, SessionManager
 from novacore.teams.mailbox import Mailbox
@@ -39,12 +28,18 @@ from novacore.teams.store import (
     TeamSnapshot,
     TeamStore,
 )
-from novacore.tools import create_worktree_registry
 from novacore.worktree import (
     CleanupResult,
     WorktreeManager,
     generate_worktree_name,
 )
+from novacore.teams.runtime import (
+    TeammateRuntimeFactory,
+)
+
+if TYPE_CHECKING:
+    from novacore.agent import Agent
+    from novacore.conversation import ConversationManager
 
 
 class CoordinatorError(RuntimeError):
@@ -84,6 +79,10 @@ class Coordinator:
         self.agent_loader = agent_loader
         self.session_manager = session_manager
         self.worktree_manager = worktree_manager
+        self.runtime_factory = TeammateRuntimeFactory(
+            parent_agent,
+            agent_loader,
+        )
 
         # Teams 使用独立 TaskManager，避免消费普通后台 Agent 的完成队列。
         self.task_manager = (
@@ -174,6 +173,16 @@ class Coordinator:
 
         return self._team
 
+    def _require_loaded_team(self) -> Team:
+        """取得活动或已关闭的当前 Team。"""
+
+        if self._team is None:
+            raise CoordinatorError(
+                "no team is loaded"
+            )
+
+        return self._team
+
     def _require_writable(self) -> None:
         """磁盘回滚失败后阻止继续覆盖可能损坏的数据。"""
 
@@ -222,86 +231,6 @@ class Coordinator:
                 self._persistence_failed = True
             raise
 
-    def _build_runtime(
-        self,
-        teammate: Teammate,
-        history: list[Message] | None = None,
-        session: Session | None = None,
-    ) -> tuple[Agent, ConversationManager]:
-        """为一个队友构造受 Worktree 限制的 Agent 与 Conversation。"""
-
-        definition = self.agent_loader.get(
-            teammate.agent_type
-        )
-        if definition is None:
-            raise CoordinatorError(
-                "unknown teammate agent type: "
-                f"{teammate.agent_type}"
-            )
-
-        try:
-            safe_registry = create_worktree_registry(
-                teammate.worktree.path
-            )
-            registry = build_agent_registry(
-                safe_registry,
-                definition,
-            )
-        except (AgentToolFilterError, ValueError) as exc:
-            raise CoordinatorError(
-                "could not build teammate tool registry: "
-                f"{exc}"
-            ) from exc
-
-        checker = PermissionChecker(
-            detector=(
-                self.parent_agent
-                .permission_checker
-                .detector
-            ),
-            sandbox=PathSandbox(
-                teammate.worktree.path
-            ),
-            mode=PermissionMode(
-                definition.permission_mode
-            ),
-            enforce_sandbox=True,
-        )
-        agent = Agent(
-            client=self.parent_agent.client,
-            registry=registry,
-            context_window=(
-                self.parent_agent.context_window
-            ),
-            permission_checker=checker,
-            max_iterations=definition.max_turns,
-            trace_manager=(
-                self.parent_agent.trace_manager
-            ),
-            agent_type=definition.agent_type,
-            parent_trace=(
-                self.parent_agent.current_trace
-            ),
-            hook_engine=self.parent_agent.hook_engine,
-        )
-        # SessionRecord 暂无 system 类型，系统提示在恢复时由 AgentDef 重建。
-        conversation = ConversationManager()
-        conversation.add_system_message(
-            definition.system_prompt
-        )
-        conversation.add_system_message(
-            "你是 Team 中的独立队友。所有文件工具都以你的 "
-            "Git Worktree 为根目录；只处理 Coordinator 分配的任务。"
-        )
-
-        if history is not None:
-            conversation.history.extend(history)
-
-        if session is not None:
-            conversation.on_message = session.append
-
-        return agent, conversation
-
     async def create_team(
         self,
         name: str,
@@ -312,10 +241,29 @@ class Coordinator:
         async with self._lock:
             self._require_writable()
 
-            if self._team is not None:
+            if (
+                self._team is not None
+                and self._team.status
+                == TeamStatus.ACTIVE
+            ):
                 raise CoordinatorError(
                     "a team is already loaded"
                 )
+
+            if self._team is not None:
+                # 已关闭 Team 保留在磁盘；当前实例只清空运行时引用。
+                self._team = None
+                self._teammates.clear()
+                self._tasks.clear()
+                self._agents.clear()
+                self._conversations.clear()
+                self._sessions.clear()
+                self._background_to_shared.clear()
+                self._shared_to_background.clear()
+                self._pending_background_completions.clear()
+                self._shutdown_interruptions.clear()
+                self._task_store = None
+                self._mailbox = None
 
             for team_id in self.team_store.list_team_ids():
                 existing = self.team_store.load(team_id)
@@ -410,10 +358,12 @@ class Coordinator:
                     session_id=session.session_id,
                     worktree=worktree,
                 )
-                agent, conversation = self._build_runtime(
+                runtime = self.runtime_factory.build(
                     teammate,
                     session=session,
                 )
+                agent = runtime.agent
+                conversation = runtime.conversation
             except Exception:
                 if session is not None:
                     session.close()
@@ -570,7 +520,7 @@ class Coordinator:
     ) -> set[str]:
         """返回当前 Team 中允许收发消息的全部身份。"""
 
-        team = self._require_team()
+        team = self._require_loaded_team()
         return {
             team.lead_agent_id,
             *team.member_ids,
@@ -583,7 +533,7 @@ class Coordinator:
     ) -> None:
         """只允许 Coordinator 与 Teammate 之间点对点通信。"""
 
-        team = self._require_team()
+        team = self._require_loaded_team()
         participants = self._mailbox_participants()
 
         if (
@@ -1333,8 +1283,8 @@ class Coordinator:
                                 "teammate session is missing"
                             )
 
-                        agent, conversation = (
-                            self._build_runtime(
+                        runtime = (
+                            self.runtime_factory.build(
                                 teammate,
                                 history=(
                                     resume_result.messages
@@ -1344,6 +1294,8 @@ class Coordinator:
                                 ),
                             )
                         )
+                        agent = runtime.agent
+                        conversation = runtime.conversation
                     except Exception as exc:
                         if resume_result is not None:
                             resume_result.session.close()

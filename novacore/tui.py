@@ -34,6 +34,13 @@ from novacore.agents import (
     TaskManager,
     inject_task_notifications,
 )
+from novacore.memory import MemoryStore
+from novacore.teams import (
+    Coordinator,
+    acknowledge_team_notifications,
+    collect_team_notifications,
+    inject_team_notifications,
+)
 import asyncio
 
 class NovaCoreApp(App[None]):
@@ -98,12 +105,16 @@ class NovaCoreApp(App[None]):
         conversation:ConversationManager,
         session:Session,
         task_manager:TaskManager,
+        coordinator: Coordinator,
+        memory_store: MemoryStore,
     )->None:
         super().__init__()
         self.agent=agent
         self.conversation = conversation
         self.session = session
         self.task_manager = task_manager
+        self.coordinator = coordinator
+        self.memory_store = memory_store
         self.command_registry = CommandRegistry()
 
         self.command_context=CommandContext(
@@ -111,6 +122,8 @@ class NovaCoreApp(App[None]):
             session_id=self.session.session_id,
             compact=self._compact_context,
             task_manager=self.task_manager,
+            memory_store=self.memory_store,
+            coordinator=self.coordinator,
 
         )
 
@@ -369,13 +382,26 @@ class NovaCoreApp(App[None]):
         completed_tasks = (
             self.task_manager.poll_completed()
         )
+        team_messages = await (
+            collect_team_notifications(
+                self.coordinator
+            )
+        )
 
-        if not completed_tasks:
+        if not completed_tasks and not team_messages:
             return
 
         inject_task_notifications(
             self.conversation,
             completed_tasks,
+        )
+        inject_team_notifications(
+            self.conversation,
+            team_messages,
+        )
+        acknowledge_team_notifications(
+            self.coordinator,
+            team_messages,
         )
 
         chat = self.query_one(
@@ -396,6 +422,19 @@ class NovaCoreApp(App[None]):
                     (
                         f"[Task] {task.task_id} "
                         f"{task.name}: {task.status}"
+                    ),
+                    classes="system-message",
+                    markup=False,
+                )
+            )
+
+        for message in team_messages:
+            await chat.mount(
+                Static(
+                    (
+                        f"[Team] {message.task_id or '-'} "
+                        f"from {message.sender_id}: "
+                        f"{message.message_type.value}"
                     ),
                     classes="system-message",
                     markup=False,
@@ -575,10 +614,14 @@ async def run_tui(
     conversation:ConversationManager,
     session:Session,
     task_manager:TaskManager,
+    coordinator: Coordinator,
+    memory_store: MemoryStore,
 )->None:
     await NovaCoreApp(
         agent,
         conversation,
         session,
         task_manager,
+        coordinator,
+        memory_store,
     ).run_async()

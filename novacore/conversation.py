@@ -98,6 +98,20 @@ class ConversationManager:
             )
         )
 
+    def prepend_system_message(
+        self,
+        content: str,
+    ) -> None:
+        """加入仅属于当前进程的 system 上下文，不触发持久化回调。"""
+
+        self.history.insert(
+            0,
+            Message(
+                role="system",
+                content=content,
+            ),
+        )
+
     def add_user_message(self, content:str):
         self._append_message(Message(role="user", content = content))
 

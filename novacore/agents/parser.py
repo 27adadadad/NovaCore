@@ -27,6 +27,7 @@ VALID_ISOLATION_MODES = frozenset(
 
 AgentSource = Literal[
     "builtin",
+    "user",
     "project",
 ]
 

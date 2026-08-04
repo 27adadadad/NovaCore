@@ -11,6 +11,14 @@ if TYPE_CHECKING:
 ALWAYS_DISALLOWED_TOOLS = frozenset(
     {
         "Agent",
+        "TeamCreate",
+        "TeammateAdd",
+        "TeamTaskCreate",
+        "TeamTaskAssign",
+        "TeamTaskStart",
+        "TeamStatus",
+        "TeamTaskCancel",
+        "TeamClose",
     }
 )
 

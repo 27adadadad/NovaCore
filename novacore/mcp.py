@@ -20,6 +20,7 @@ from novacore.tools import (
     ToolCategory,
     ToolRegistry,
     ToolResult,
+    VALID_TOOL_NAME,
 )
 
 MCPToolExecutor = Callable[
@@ -351,15 +352,23 @@ class MCPManager:
             seen_names: set[str] = set()
 
             for adapter in adapters:
+                if not VALID_TOOL_NAME.fullmatch(
+                    adapter.name
+                ):
+                    raise RuntimeError(
+                        "MCP public tool name is not valid for "
+                        f"the model protocol: {adapter.name!r}"
+                    )
+
                 if adapter.name in seen_names:
                     raise RuntimeError(
                         f"Duplicate MCP tool name: "
                         f"{adapter.name}"
                     )
 
-                if self.registry.get(
+                if self.registry.contains(
                     adapter.name
-                ) is not None:
+                ):
                     raise RuntimeError(
                         f"MCP tool name conflicts "
                         f"with existing tool: "
@@ -369,7 +378,10 @@ class MCPManager:
                 seen_names.add(adapter.name)
 
             for adapter in adapters:
-                self.registry.register(adapter)
+                self.registry.register(
+                    adapter,
+                    deferred=True,
+                )
 
         except BaseException:
             await client.close()

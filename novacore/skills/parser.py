@@ -4,6 +4,7 @@ import re
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 
 class SkillParseError(Exception):
@@ -13,6 +14,12 @@ VALID_SKILL_NAME = re.compile(
     r"^[a-z][a-z0-9-]*$"
 )
 
+SkillSource = Literal[
+    "builtin",
+    "user",
+    "project",
+]
+
 
 @dataclass
 class SkillDef:
@@ -20,6 +27,7 @@ class SkillDef:
     description: str
     prompt_body: str
     source_path: Path
+    source: SkillSource = "project"
 
 def parse_frontmatter(
     raw: str,
@@ -92,6 +100,7 @@ def validate_metadata(
 
 def parse_skill_file(
     path: Path,
+    source: SkillSource = "project",
 ) -> SkillDef:
     try:
         raw = path.read_text(
@@ -113,4 +122,5 @@ def parse_skill_file(
         description=description,
         prompt_body=body,
         source_path=path,
+        source=source,
     )

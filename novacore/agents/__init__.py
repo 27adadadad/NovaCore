@@ -2,6 +2,7 @@ from novacore.agents.loader import AgentLoader
 from novacore.agents.parser import (
     AgentDef,
     AgentParseError,
+    AgentSource,
     parse_agent_file,
 )
 from novacore.agents.trace import (
@@ -39,6 +40,7 @@ __all__ = [
     "AgentDef",
     "AgentLoader",
     "AgentParseError",
+    "AgentSource",
     "AgentTool",
     "AgentToolFilterError",
     "AgentToolParams",

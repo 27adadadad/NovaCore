@@ -7,12 +7,18 @@ import shlex
 from novacore.conversation import(
     ConversationManager,
 )
+from novacore.memory import (
+    MAX_MEMORY_INJECTION_CHARS,
+    MemoryStoreError,
+)
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from novacore.agents.task_manager import (
         TaskManager,
     )
+    from novacore.memory import MemoryStore
+    from novacore.teams import Coordinator
 
 CompactAction = Callable[
     [],
@@ -25,6 +31,8 @@ class CommandContext:
     session_id: str
     compact: CompactAction | None = None
     task_manager: TaskManager | None = None
+    memory_store: MemoryStore | None = None
+    coordinator: Coordinator | None = None
 
 @dataclass
 class CommandInvocation:
@@ -91,6 +99,22 @@ class CommandRegistry:
                 name="help",
                 description="Show available commands",
                 handler=self._handle_help,
+            )
+        )
+        self.register(
+            CommandDefinition(
+                name="memory",
+                description="Show durable memory",
+                handler=self._handle_memory,
+            )
+        )
+        self.register(
+            CommandDefinition(
+                name="team",
+                description=(
+                    "Show team status or cancel/resume work"
+                ),
+                handler=self._handle_team,
             )
         )
         self.register(
@@ -357,6 +381,149 @@ class CommandRegistry:
         return CommandResult(
             content = message
         )
+
+    async def _handle_memory(
+        self,
+        context: CommandContext,
+        arguments: list[str],
+    ) -> CommandResult:
+        if len(arguments) > 1:
+            return CommandResult(
+                content="Usage: /memory [all|project|user]",
+                is_error=True,
+            )
+
+        store = context.memory_store
+
+        if store is None:
+            return CommandResult(
+                content="Memory is not available",
+                is_error=True,
+            )
+
+        scope = (
+            arguments[0].lower()
+            if arguments
+            else "all"
+        )
+
+        if scope not in {"all", "project", "user"}:
+            return CommandResult(
+                content="Usage: /memory [all|project|user]",
+                is_error=True,
+            )
+
+        scopes = (
+            ("user", "project")
+            if scope == "all"
+            else (scope,)
+        )
+        try:
+            sections = [
+                f"{item.title()} memory:\n"
+                f"{store.read(item) or '(empty)'}"
+                for item in scopes
+            ]
+        except MemoryStoreError as exc:
+            return CommandResult(
+                content=f"Could not read memory: {exc}",
+                is_error=True,
+            )
+
+        content = "\n\n".join(sections)
+
+        if len(content) > MAX_MEMORY_INJECTION_CHARS:
+            marker = "... (older memory omitted)\n\n"
+            content = (
+                marker
+                + content[-(
+                    MAX_MEMORY_INJECTION_CHARS
+                    - len(marker)
+                ):]
+            )
+
+        return CommandResult(
+            content=content
+        )
+
+    async def _handle_team(
+        self,
+        context: CommandContext,
+        arguments: list[str],
+    ) -> CommandResult:
+        coordinator = context.coordinator
+
+        if coordinator is None:
+            return CommandResult(
+                content="Teams are not available",
+                is_error=True,
+            )
+
+        if arguments:
+            action = arguments[0].lower()
+
+            if action == "cancel" and len(arguments) == 2:
+                cancelled = await coordinator.cancel_task(
+                    arguments[1]
+                )
+                return CommandResult(
+                    content=(
+                        f"Cancellation completed: {arguments[1]}"
+                        if cancelled
+                        else f"Could not cancel: {arguments[1]}"
+                    ),
+                    is_error=not cancelled,
+                )
+
+            if action == "resume" and len(arguments) == 2:
+                teammate = await coordinator.resume_teammate(
+                    arguments[1]
+                )
+                return CommandResult(
+                    content=(
+                        f"Teammate resumed: "
+                        f"{teammate.teammate_id}"
+                    )
+                )
+
+            return CommandResult(
+                content=(
+                    "Usage: /team | /team cancel <task_id> "
+                    "| /team resume <teammate_id>"
+                ),
+                is_error=True,
+            )
+
+        team = coordinator.team
+
+        if team is None:
+            return CommandResult(content="No team is loaded")
+
+        lines = [
+            f"Team: {team.name} [{team.team_id}] "
+            f"- {team.status.value}",
+            "Teammates:",
+        ]
+        teammates = coordinator.list_teammates()
+        lines.extend(
+            f"- {item.name} [{item.teammate_id}] "
+            f"{item.status.value} task={item.current_task_id or '-'}"
+            for item in teammates
+        )
+        if not teammates:
+            lines.append("- (none)")
+
+        lines.append("Tasks:")
+        tasks = coordinator.list_tasks()
+        lines.extend(
+            f"- {item.title} [{item.task_id}] "
+            f"{item.status.value} assignee={item.assignee_id or '-'}"
+            for item in tasks
+        )
+        if not tasks:
+            lines.append("- (none)")
+
+        return CommandResult(content="\n".join(lines))
 
     async def execute(
         self,

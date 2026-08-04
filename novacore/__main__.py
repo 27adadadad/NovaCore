@@ -8,6 +8,10 @@ import sys
 from novacore.client import DashScopeClient
 from novacore.config import load_config
 from novacore.tools import create_default_registry
+from novacore.tool_search import (
+    ToolSearch,
+    restore_discovered_tools,
+)
 from novacore.agent import (
     Agent,
     StreamText,
@@ -31,7 +35,10 @@ from novacore.command_safety import DangerousCommandDetector
 from novacore.tui import run_tui
 from novacore.conversation import ConversationManager
 from novacore.session import SessionManager, make_compact_boundary
-from novacore.context import CompactBoundary
+from novacore.context import (
+    CompactBoundary,
+    compact_conversation,
+)
 from novacore.mcp import MCPManager, load_mcp_server_configs
 from novacore.skills import (
     LoadSkill,
@@ -44,6 +51,24 @@ from novacore.agents import (
     inject_task_notifications,
 )
 from novacore.worktree import WorktreeManager
+from novacore.memory import (
+    MemoryStoreError,
+    MemoryStore,
+    RecallMemory,
+    Remember,
+)
+from novacore.teams import (
+    Coordinator,
+    acknowledge_team_notifications,
+    collect_team_notifications,
+    inject_team_notifications,
+    register_team_tools,
+)
+from novacore.commands import (
+    CommandContext,
+    CommandRegistry,
+    parse_command,
+)
 
 def parse_args()->argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -107,6 +132,18 @@ async def main()->None:
     registry = create_default_registry(
         work_dir=sandbox.project_root
     )
+    memory_store = MemoryStore(
+        sandbox.project_root
+    )
+    registry.register(
+        RecallMemory(memory_store)
+    )
+    registry.register(
+        Remember(memory_store)
+    )
+    registry.register(
+        ToolSearch(registry)
+    )
     skill_loader = SkillLoader(
         sandbox.project_root
     )
@@ -138,6 +175,22 @@ async def main()->None:
     worktree_manager = WorktreeManager(
         sandbox.project_root
     )
+    session_manager = SessionManager(
+        sandbox.project_root,
+    )
+    coordinator = Coordinator(
+        work_dir=sandbox.project_root,
+        parent_agent=agent,
+        agent_loader=agent_loader,
+        session_manager=session_manager,
+        worktree_manager=worktree_manager,
+    )
+
+    register_team_tools(
+        registry,
+        coordinator,
+        deferred=True,
+    )
     registry.register(
         AgentTool(
             loader=agent_loader,
@@ -145,10 +198,6 @@ async def main()->None:
             task_manager=task_manager,
             worktree_manager=worktree_manager,
         )
-    )
-
-    session_manager = SessionManager(
-        sandbox.project_root,
     )
 
     if args.resume is None:
@@ -175,6 +224,27 @@ async def main()->None:
             on_message=session.append,
         )
 
+    try:
+        memory_prompt = (
+            memory_store.build_system_prompt()
+        )
+    except MemoryStoreError as exc:
+        print(
+            f"[memory] could not load: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+    else:
+        if memory_prompt:
+            conversation.prepend_system_message(
+                memory_prompt
+            )
+
+    restore_discovered_tools(
+        registry,
+        conversation.get_messages(),
+    )
+
     def save_compact_boundary(
         boundary: CompactBoundary,
     ) -> None:
@@ -184,20 +254,60 @@ async def main()->None:
         )
         session.append_record(record)
 
+    async def compact_action() -> str:
+        compact_event = await compact_conversation(
+            conversation,
+            agent.client,
+            agent.context_window,
+            manual=True,
+        )
+
+        if (
+            compact_event is None
+            or compact_event.boundary is None
+        ):
+            return "Context is too small to compact"
+
+        save_compact_boundary(
+            compact_event.boundary
+        )
+        return (
+            "Context compacted "
+            f"({compact_event.before_tokens:,} "
+            "tokens before compaction)"
+        )
+
     async def wait_and_inject_task_notifications(
     ) -> bool:
-        await task_manager.wait_all()
+        await asyncio.gather(
+            task_manager.wait_all(),
+            coordinator.task_manager.wait_all(),
+        )
 
         completed_tasks = (
             task_manager.poll_completed()
         )
 
-        if not completed_tasks:
+        team_messages = await (
+            collect_team_notifications(
+                coordinator
+            )
+        )
+
+        if not completed_tasks and not team_messages:
             return False
 
         inject_task_notifications(
             conversation,
             completed_tasks,
+        )
+        inject_team_notifications(
+            conversation,
+            team_messages,
+        )
+        acknowledge_team_notifications(
+            coordinator,
+            team_messages,
         )
 
         for task in completed_tasks:
@@ -205,6 +315,17 @@ async def main()->None:
                 (
                     f"[task] {task.task_id} "
                     f"{task.name}: {task.status}"
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+
+        for message in team_messages:
+            print(
+                (
+                    f"[team] {message.task_id or '-'} "
+                    f"from {message.sender_id}: "
+                    f"{message.message_type.value}"
                 ),
                 file=sys.stderr,
                 flush=True,
@@ -305,6 +426,21 @@ async def main()->None:
         print()
 
     try:
+        # Team 恢复放在统一清理边界内，失败时也会关闭所有资源。
+        restored_team = await (
+            coordinator.restore_active_team()
+        )
+
+        if restored_team is not None:
+            print(
+                (
+                    f"[team] restored {restored_team.name} "
+                    f"({restored_team.team_id})"
+                ),
+                file=sys.stderr,
+                flush=True,
+            )
+
         if args.mcp_config is not None:
             server_configs = (
                 load_mcp_server_configs(
@@ -329,12 +465,53 @@ async def main()->None:
                     flush=True,
                 )
 
+                # MCP 工具在连接后才完成注册，此时再恢复
+                # Session 中曾经由 ToolSearch 激活的工具。
+                restore_discovered_tools(
+                    registry,
+                    conversation.get_messages(),
+                )
+
         if args.prompt is None:
             await run_tui(
                 agent,
                 conversation,
                 session,
                 task_manager,
+                coordinator,
+                memory_store,
+            )
+            return
+
+        try:
+            invocation = parse_command(args.prompt)
+        except ValueError as exc:
+            print(
+                f"Command error: {exc}",
+                file=sys.stderr,
+            )
+            return
+
+        if invocation is not None:
+            command_result = await CommandRegistry().execute(
+                CommandContext(
+                    conversation=conversation,
+                    session_id=session.session_id,
+                    compact=compact_action,
+                    task_manager=task_manager,
+                    memory_store=memory_store,
+                    coordinator=coordinator,
+                ),
+                invocation,
+            )
+            output_stream = (
+                sys.stderr
+                if command_result.is_error
+                else sys.stdout
+            )
+            print(
+                command_result.content,
+                file=output_stream,
             )
             return
 
@@ -373,16 +550,24 @@ async def main()->None:
                     conversation=conversation,
                     on_compact=save_compact_boundary,
                 )
+
+                restore_discovered_tools(
+                    registry,
+                    conversation.get_messages(),
+                )
                 print(answer)
 
     finally:
         try:
-            await task_manager.shutdown()
+            await coordinator.shutdown()
         finally:
             try:
-                await mcp_manager.close()
+                await task_manager.shutdown()
             finally:
-                session.close()
+                try:
+                    await mcp_manager.close()
+                finally:
+                    session.close()
 
 if __name__ == "__main__":
         asyncio.run(main())

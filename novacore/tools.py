@@ -12,6 +12,9 @@ import asyncio
 
 ToolCategory = Literal["read", "write", "command"]
 MAX_COMMAND_TIMEOUT=600
+VALID_TOOL_NAME = re.compile(
+    r"^[A-Za-z0-9_-]{1,64}$"
+)
 SKIP_SEARCH_DIRS = {
     ".git",
     ".venv",
@@ -783,22 +786,163 @@ class Bash:
 class ToolRegistry:
     def __init__(self)-> None:
         self._tools:dict[str, Tool] = {}
+        self._discovered: set[str] = set()
 
-    def register(self, tool:Tool)->None:
-        self._tools[tool.name]=tool
+    def register(
+        self,
+        tool: Tool,
+        deferred: bool = False,
+    ) -> None:
+        """注册工具；deferred 工具在被发现前不会暴露给模型。"""
+
+        name = tool.name
+
+        if not VALID_TOOL_NAME.fullmatch(name):
+            raise ValueError(
+                "Tool name must contain only letters, numbers, "
+                "underscores, or hyphens and be at most "
+                f"64 characters: {name!r}"
+            )
+
+        if name in self._tools:
+            raise ValueError(
+                f"Tool already registered: {name}"
+            )
+
+        self._tools[name] = tool
+
+        if not deferred:
+            self._discovered.add(name)
 
     def get(self, name:str)-> Tool | None:
+        if name not in self._discovered:
+            return None
+
         return self._tools.get(name)
+
+    def contains(self, name: str) -> bool:
+        """无论是否已发现，都检查工具名称是否已注册。"""
+
+        return name in self._tools
 
     def list_tools(
         self,
+        include_deferred: bool = False,
     ) -> list[Tool]:
-        return list(
-            self._tools.values()
+        if include_deferred:
+            return list(self._tools.values())
+
+        return [
+            tool
+            for name, tool in self._tools.items()
+            if name in self._discovered
+        ]
+
+    def get_deferred_tool_names(
+        self,
+    ) -> tuple[str, ...]:
+        """返回尚未向模型暴露的工具名。"""
+
+        return tuple(
+            sorted(
+                name
+                for name in self._tools
+                if name not in self._discovered
+            )
         )
+
+    def discover(
+        self,
+        name: str,
+    ) -> dict[str, Any] | None:
+        """激活一个 deferred 工具并返回其完整 schema。"""
+
+        tool = self._tools.get(name)
+
+        if (
+            tool is None
+            or name in self._discovered
+        ):
+            return None
+
+        schema = tool.get_schema()
+        self._discovered.add(name)
+        return schema
+
+    def discover_many(
+        self,
+        names: list[str],
+    ) -> list[dict[str, Any]]:
+        """按给定顺序激活多个工具，自动忽略重复名称。"""
+
+        schemas: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        for name in names:
+            if name in seen:
+                continue
+
+            seen.add(name)
+            schema = self.discover(name)
+
+            if schema is not None:
+                schemas.append(schema)
+
+        return schemas
+
+    def search_deferred(
+        self,
+        query: str,
+        limit: int,
+    ) -> list[str]:
+        """按名称和描述对 deferred 工具进行简单相关性排序。"""
+
+        terms = [
+            term
+            for term in re.split(
+                r"\s+",
+                query.strip().lower(),
+            )
+            if term
+        ]
+
+        if not terms:
+            return []
+
+        scored: list[tuple[int, str]] = []
+
+        for name in self.get_deferred_tool_names():
+            tool = self._tools[name]
+            lowered_name = name.lower()
+            haystack = (
+                f"{name} {tool.description}"
+                .lower()
+            )
+            score = sum(
+                3 if term in lowered_name else 1
+                for term in terms
+                if term in haystack
+            )
+
+            if score:
+                scored.append((score, name))
+
+        scored.sort(
+            key=lambda item: (
+                -item[0],
+                item[1],
+            )
+        )
+        return [
+            name
+            for _score, name in scored[:limit]
+        ]
     
     def get_all_schemas(self)->list[dict[str, Any]]:
-        return [tool.get_schema() for tool in self._tools.values()]
+        return [
+            tool.get_schema()
+            for tool in self.list_tools()
+        ]
     
     async def execute(self, name:str, arguments:dict[str, Any])->ToolResult:
         tool = self.get(name)

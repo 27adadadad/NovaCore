@@ -7,6 +7,7 @@ import logging
 from novacore.agents.parser import (
     AgentDef,
     AgentParseError,
+    AgentSource,
     parse_agent_file,
 )
 
@@ -18,6 +19,7 @@ class AgentLoader:
     def __init__(
         self,
         work_dir: str | Path,
+        user_agents_dir: str | Path | None = None,
     ) -> None:
         self.work_dir = Path(work_dir)
 
@@ -26,8 +28,65 @@ class AgentLoader:
             / ".novacore"
             / "agents"
         )
+        self.user_agents_dir = (
+            Path(user_agents_dir)
+            if user_agents_dir is not None
+            else Path.home() / ".novacore" / "agents"
+        ).expanduser()
 
         self._agents: dict[str, AgentDef] = {}
+        self._loaded_signature: tuple[
+            tuple[str, int, int], ...
+        ] = ()
+
+    def _definition_signature(
+        self,
+    ) -> tuple[tuple[str, int, int], ...]:
+        """记录用户级和项目级 Agent 文件的当前状态。"""
+
+        entries: list[tuple[str, int, int]] = []
+
+        for directory in (
+            self.user_agents_dir,
+            self.agents_dir,
+        ):
+            if not directory.is_dir():
+                continue
+
+            try:
+                files = sorted(directory.iterdir())
+            except OSError:
+                entries.append((str(directory), -1, -1))
+                continue
+
+            for path in files:
+                if (
+                    not path.is_file()
+                    or path.suffix.lower() != ".md"
+                ):
+                    continue
+
+                try:
+                    stat = path.stat()
+                except OSError:
+                    entries.append((str(path), -1, -1))
+                    continue
+
+                entries.append(
+                    (
+                        str(path),
+                        stat.st_mtime_ns,
+                        stat.st_size,
+                    )
+                )
+
+        return tuple(entries)
+
+    def _refresh_if_changed(self) -> None:
+        """仅在定义目录变化时重建覆盖后的 Agent 清单。"""
+
+        if self._definition_signature() != self._loaded_signature:
+            self.load_all()
 
     def _load_builtins(
         self,
@@ -72,6 +131,64 @@ class AgentLoader:
 
         return definitions
 
+    def _load_directory(
+        self,
+        directory: Path,
+        source: AgentSource,
+    ) -> list[AgentDef]:
+        """从单个目录读取 Agent，并拒绝目录内重复名称。"""
+
+        definitions: list[AgentDef] = []
+        seen: set[str] = set()
+
+        if not directory.is_dir():
+            return definitions
+
+        try:
+            files = sorted(directory.iterdir())
+        except OSError as exc:
+            log.warning(
+                "无法读取 %s Agent 目录 %s：%s",
+                source,
+                directory,
+                exc,
+            )
+            return definitions
+
+        for agent_file in files:
+            if (
+                not agent_file.is_file()
+                or agent_file.suffix.lower() != ".md"
+            ):
+                continue
+
+            try:
+                definition = parse_agent_file(
+                    agent_file,
+                    source=source,
+                )
+            except AgentParseError as exc:
+                log.warning(
+                    "跳过无法解析的 %s Agent %s：%s",
+                    source,
+                    agent_file.name,
+                    exc,
+                )
+                continue
+
+            if definition.agent_type in seen:
+                log.warning(
+                    "跳过重复的 %s Agent：%s",
+                    source,
+                    definition.agent_type,
+                )
+                continue
+
+            seen.add(definition.agent_type)
+            definitions.append(definition)
+
+        return definitions
+
     def load_all(
         self,
     ) -> dict[str, AgentDef]:
@@ -82,51 +199,24 @@ class AgentLoader:
                 definition
             )
 
-        if not self.agents_dir.is_dir():
-            self._agents = loaded
-            return loaded
-
-        for agent_file in sorted(
-            self.agents_dir.iterdir()
+        for definition in self._load_directory(
+            self.user_agents_dir,
+            "user",
         ):
-            if (
-                not agent_file.is_file()
-                or agent_file.suffix.lower() != ".md"
-            ):
-                continue
-
-            try:
-                definition = parse_agent_file(
-                    agent_file,
-                    source="project",
-                )
-            except AgentParseError as exc:
-                log.warning(
-                    "跳过无法解析的 Agent %s：%s",
-                    agent_file.name,
-                    exc,
-                )
-                continue
-
-            existing = loaded.get(
-                definition.agent_type
-            )
-
-            if (
-                existing is not None
-                and existing.source == "project"
-            ):
-                log.warning(
-                    "跳过重复的项目 Agent：%s",
-                    definition.agent_type,
-                )
-                continue
-
             loaded[definition.agent_type] = (
                 definition
             )
 
+        for definition in self._load_directory(
+            self.agents_dir,
+            "project",
+        ):
+            loaded[definition.agent_type] = definition
+
         self._agents = loaded
+        self._loaded_signature = (
+            self._definition_signature()
+        )
         return loaded
 
 
@@ -134,6 +224,8 @@ class AgentLoader:
         self,
         agent_type: str,
     ) -> AgentDef | None:
+        self._refresh_if_changed()
+
         cached = self._agents.get(
             agent_type
         )
@@ -167,6 +259,8 @@ class AgentLoader:
     def list_agents(
         self,
     ) -> list[tuple[str, str]]:
+        self._refresh_if_changed()
+
         return [
             (
                 agent_type,
