@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 
@@ -37,3 +38,21 @@ def compare_tool_payloads(
         "discovered_payload_approx_tokens": round(discovered_payload_bytes / 4),
         "savings_ratio": round(savings_ratio, 4),
     }
+
+
+def run_fixture(
+    fixture_path: str | Path,
+    output_path: str | Path,
+) -> dict[str, int | float]:
+    """读取固定 fixture 并写出稳定的 JSON 基准报告。"""
+
+    fixture = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
+    tools = fixture["tools"]
+    discovered_names = set(fixture["discovered_names"])
+    result = compare_tool_payloads(tools, discovered_names)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_path).write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return result

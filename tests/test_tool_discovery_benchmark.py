@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from benchmarks.tool_discovery import compare_tool_payloads
+import json
+
+from benchmarks.tool_discovery import compare_tool_payloads, run_fixture
 
 
 def test_compare_payloads_reports_smaller_discovered_subset():
@@ -25,3 +27,25 @@ def test_compare_payloads_reports_smaller_discovered_subset():
     assert result["discovered_tool_count"] == 2
     assert result["discovered_payload_bytes"] < result["all_payload_bytes"]
     assert result["savings_ratio"] > 0
+
+
+def test_run_fixture_writes_reproducible_json_report(tmp_path):
+    fixture = tmp_path / "tools.json"
+    output = tmp_path / "result.json"
+    fixture.write_text(
+        json.dumps(
+            {
+                "tools": [
+                    {"type": "function", "function": {"name": "alpha"}},
+                    {"type": "function", "function": {"name": "beta"}},
+                ],
+                "discovered_names": ["alpha"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_fixture(fixture, output)
+
+    assert result["tool_count"] == 2
+    assert json.loads(output.read_text(encoding="utf-8")) == result

@@ -1,0 +1,9 @@
+{
+  "tool_count": 100,
+  "discovered_tool_count": 3,
+  "all_payload_bytes": 32701,
+  "discovered_payload_bytes": 982,
+  "all_payload_approx_tokens": 8175,
+  "discovered_payload_approx_tokens": 246,
+  "savings_ratio": 0.97
+}
