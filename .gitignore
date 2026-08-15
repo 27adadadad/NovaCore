@@ -4,8 +4,15 @@
 !/.env.example
 !/README.md
 !/requirements.txt
+!/pyproject.toml
 !/novacore/
 !/novacore/**
+!/benchmarks/
+!/benchmarks/**
+!/docs/
+!/docs/**
+!/tests/
+!/tests/**
 
 **/__pycache__/
 *.py[cod]
