@@ -129,6 +129,20 @@ select:TeamStatus,TeamTaskCreate
 
 This keeps the default tool schema small while still allowing a Session to restore tools it has already used.
 
+## Deferred Tool Benchmark
+
+The included 100-tool fixture measures the payload reduction from deferred
+schema discovery. Activating three matched schemas reduces the serialized
+payload from 32,701 bytes to 982 bytes, or about 97% less data. The reported
+token count is an estimate calculated as UTF-8 bytes divided by four; it is
+not a provider billing measurement.
+
+Reproduce the result:
+
+```powershell
+python -m benchmarks.tool_discovery --fixture benchmarks/fixtures/tools_100.json --output benchmarks/results/tool_discovery.json
+```
+
 ## MCP
 
 Start NovaCore with the public example MCP configuration:
@@ -151,6 +165,19 @@ User:    ~/.novacore/memory/MEMORY.md
 `RecallMemory` reads or searches Memory. `Remember` appends a durable entry and is treated as a write operation by the permission system. Startup injection and tool output are bounded so Memory cannot consume the entire model context.
 
 Memory is separate from JSONL Sessions: resuming a Session restores conversation history, while Memory is loaded independently at startup.
+
+## Automatic Memory
+
+Automatic memory extraction is disabled by default. When enabled, a successful
+prompt schedules a background extraction task, so durable-memory processing
+does not block the main answer. At most one to three candidates are accepted
+per turn; candidates must pass strict JSON validation and sensitive-information
+filtering before an idempotent upsert to project or user `MEMORY.md`.
+
+```powershell
+$env:AUTO_MEMORY_ENABLED = "true"
+$env:AUTO_MEMORY_MAX_CANDIDATES = "3"
+```
 
 ## Agents And Skills
 
@@ -186,8 +213,27 @@ NovaCore applies several boundaries:
 - Memory uses bounded UTF-8 files and atomic replacement.
 - API keys and local MCP credentials are not stored in Session or Memory automatically.
 
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Security Boundaries](docs/security.md)
+- [Demo Guide](docs/demo.md)
+- [Verification Report](docs/verification-report.md)
+- [Resume-Verified Project Description](docs/resume-verified.md)
+
 ## Project Status
 
 The single-process core is complete for the current learning scope. Platform-specific teammate backends such as tmux and iTerm2, concurrent execution of multiple tool calls within one model turn, and full compatibility with the reference project are intentionally out of scope.
 
-Automated tests are currently skipped by project choice. The implementation has been checked with AST/import validation, FakeClient flows, temporary Git repositories, Textual `run_test()`, CLI smoke checks, and earlier real-model Worktree/Teams runs.
+## Verification
+
+Run the automated test suite and reproduce the deferred-tool benchmark:
+
+```powershell
+python -m pytest tests -q
+python -m benchmarks.tool_discovery --fixture benchmarks/fixtures/tools_100.json --output benchmarks/results/tool_discovery.json
+```
+
+The current suite covers automatic memory extraction and scheduling, context
+compaction, permission boundaries, Worktree isolation, and deferred-tool
+payload measurement.
