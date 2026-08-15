@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from novacore.conversation import ConversationManager
+from novacore.memory.prompts import MEMORY_EXTRACTION_PROMPT
+from novacore.memory.store import MemoryStore, MemoryStoreError
 
 
 MemoryScope = Literal["user", "project"]
@@ -65,3 +69,53 @@ def parse_candidates(
             break
 
     return candidates
+
+
+def _render_conversation(
+    conversation: ConversationManager,
+) -> str:
+    lines: list[str] = []
+    for message in conversation.get_messages():
+        if message.role not in {"user", "assistant"}:
+            continue
+        content = message.content.strip()
+        if content:
+            lines.append(f"[{message.role}] {content}")
+    return "\n".join(lines)
+
+
+async def extract_and_store(
+    client: Any,
+    conversation: ConversationManager,
+    store: MemoryStore,
+    max_candidates: int = MAX_CANDIDATES,
+) -> tuple[MemoryCandidate, ...]:
+    """提取本轮稳定信息并写入长期记忆；调用失败时静默跳过。"""
+
+    transcript = _render_conversation(conversation)
+    if not transcript:
+        return ()
+
+    try:
+        response = await client.complete(
+            [
+                {"role": "system", "content": MEMORY_EXTRACTION_PROMPT},
+                {
+                    "role": "user",
+                    "content": f"Conversation:\n{transcript}",
+                },
+            ],
+            tools=[],
+        )
+    except Exception:
+        return ()
+
+    saved: list[MemoryCandidate] = []
+    for candidate in parse_candidates(response.text, max_candidates):
+        try:
+            store.upsert(candidate.scope, candidate.title, candidate.content)
+        except MemoryStoreError:
+            continue
+        saved.append(candidate)
+
+    return tuple(saved)

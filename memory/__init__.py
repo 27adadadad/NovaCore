@@ -16,6 +16,7 @@ from novacore.memory.tools import (
 )
 from novacore.memory.extractor import (
     MemoryCandidate,
+    extract_and_store,
     parse_candidates,
 )
 
@@ -34,5 +35,6 @@ __all__ = [
     "Remember",
     "RememberParams",
     "MemoryCandidate",
+    "extract_and_store",
     "parse_candidates",
 ]
