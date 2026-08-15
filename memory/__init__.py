@@ -5,6 +5,7 @@ from novacore.memory.store import (
     MAX_MEMORY_SEARCH_CHARS,
     MemoryStoreError,
     MemoryScope,
+    MemoryEntry,
     MemoryStore,
 )
 from novacore.memory.tools import (
@@ -26,6 +27,7 @@ __all__ = [
     "MAX_MEMORY_SEARCH_CHARS",
     "MemoryStoreError",
     "MemoryScope",
+    "MemoryEntry",
     "MemoryStore",
     "RecallMemory",
     "RecallMemoryParams",
