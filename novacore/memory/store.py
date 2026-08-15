@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 import threading
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -13,10 +15,23 @@ MAX_MEMORY_FILE_CHARS = 64_000
 MAX_MEMORY_ENTRY_CHARS = 4_000
 MAX_MEMORY_INJECTION_CHARS = 12_000
 MAX_MEMORY_SEARCH_CHARS = 8_000
+_MEMORY_TITLE_PATTERN = re.compile(r"^[a-z0-9-]{1,80}$")
+_TITLED_ENTRY_PATTERN = re.compile(
+    r"^## (?P<timestamp>[^\n]+)\n\n"
+    r"### (?P<title>[a-z0-9-]+)\n\n"
+    r"(?P<content>.*?)(?=^## |\Z)",
+    re.MULTILINE | re.DOTALL,
+)
 
 
 class MemoryStoreError(RuntimeError):
     """长期 Memory 无法安全读取或写入。"""
+
+
+@dataclass(frozen=True)
+class MemoryEntry:
+    title: str
+    content: str
 
 
 class MemoryStore:
@@ -224,6 +239,72 @@ class MemoryStore:
             self._atomic_write(
                 self._memory_path(scope),
                 updated,
+            )
+
+    def list_entries(
+        self,
+        scope: MemoryScope,
+    ) -> tuple[MemoryEntry, ...]:
+        """读取由 upsert 写入的带标题记忆条目。"""
+
+        return tuple(
+            MemoryEntry(
+                title=match.group("title"),
+                content=match.group("content").strip(),
+            )
+            for match in _TITLED_ENTRY_PATTERN.finditer(
+                self.read(scope)
+            )
+        )
+
+    def upsert(
+        self,
+        scope: MemoryScope,
+        title: str,
+        content: str,
+    ) -> None:
+        """按稳定标题原子地新增或替换一条长期记忆。"""
+
+        normalized_title = title.strip().lower()
+        normalized_content = content.strip()
+
+        if not _MEMORY_TITLE_PATTERN.fullmatch(normalized_title):
+            raise MemoryStoreError("memory title must be kebab-case")
+        if not normalized_content:
+            raise MemoryStoreError("memory content must not be empty")
+        if len(normalized_content) > MAX_MEMORY_ENTRY_CHARS:
+            raise MemoryStoreError(
+                "memory entry exceeds "
+                f"{MAX_MEMORY_ENTRY_CHARS} characters"
+            )
+
+        with self._write_lock:
+            current = self.read(scope)
+            for match in _TITLED_ENTRY_PATTERN.finditer(current):
+                if match.group("title") != normalized_title:
+                    continue
+
+                if match.group("content").strip() == normalized_content:
+                    return
+
+                replacement = (
+                    f"## {match.group('timestamp')}\n\n"
+                    f"### {normalized_title}\n\n"
+                    f"{normalized_content}\n"
+                )
+                updated = (
+                    current[:match.start()]
+                    + replacement
+                    + current[match.end():]
+                )
+                if len(updated) > MAX_MEMORY_FILE_CHARS:
+                    raise MemoryStoreError("memory file is full")
+                self._atomic_write(self._memory_path(scope), updated)
+                return
+
+            self.append(
+                scope,
+                f"### {normalized_title}\n\n{normalized_content}",
             )
 
     def search(
