@@ -1,0 +1,12 @@
+{
+  "servers": [
+    {
+      "name": "demo",
+      "command": ".venv/Scripts/python.exe",
+      "args": [
+        "novacore/examples/mcp_echo_server.py"
+      ],
+      "cwd": "."
+    }
+  ]
+}
