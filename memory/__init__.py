@@ -19,6 +19,7 @@ from novacore.memory.extractor import (
     extract_and_store,
     parse_candidates,
 )
+from novacore.memory.runtime import AutoMemoryRunner
 
 
 __all__ = [
@@ -36,5 +37,6 @@ __all__ = [
     "RememberParams",
     "MemoryCandidate",
     "extract_and_store",
+    "AutoMemoryRunner",
     "parse_candidates",
 ]
