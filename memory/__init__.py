@@ -13,6 +13,10 @@ from novacore.memory.tools import (
     Remember,
     RememberParams,
 )
+from novacore.memory.extractor import (
+    MemoryCandidate,
+    parse_candidates,
+)
 
 
 __all__ = [
@@ -27,4 +31,6 @@ __all__ = [
     "RecallMemoryParams",
     "Remember",
     "RememberParams",
+    "MemoryCandidate",
+    "parse_candidates",
 ]
