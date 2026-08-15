@@ -6,7 +6,7 @@ import asyncio
 import sys
 
 from novacore.client import DashScopeClient
-from novacore.config import load_config
+from novacore.config import load_auto_memory_settings, load_config
 from novacore.tools import create_default_registry
 from novacore.tool_search import (
     ToolSearch,
@@ -52,6 +52,7 @@ from novacore.agents import (
 )
 from novacore.worktree import WorktreeManager
 from novacore.memory import (
+    AutoMemoryRunner,
     MemoryStoreError,
     MemoryStore,
     RecallMemory,
@@ -128,6 +129,7 @@ async def main()->None:
     sandbox = PathSandbox(project_root=Path.cwd())
 
     config = load_config()
+    auto_memory_settings = load_auto_memory_settings()
     client = DashScopeClient(config)
     registry = create_default_registry(
         work_dir=sandbox.project_root
@@ -223,6 +225,14 @@ async def main()->None:
             history=resume_result.messages,
             on_message=session.append,
         )
+
+    auto_memory_runner = AutoMemoryRunner(
+        enabled=auto_memory_settings.enabled,
+        max_candidates=auto_memory_settings.max_candidates,
+        client=client,
+        conversation=conversation,
+        store=memory_store,
+    )
 
     try:
         memory_prompt = (
@@ -335,7 +345,8 @@ async def main()->None:
 
     async def run_streaming_prompt(
         prompt: str,
-    ) -> None:
+    ) -> bool:
+        completed = False
 
         async for event in agent.stream_to_completion(
             prompt,
@@ -411,6 +422,7 @@ async def main()->None:
                 )
 
             elif isinstance(event, LoopComplete):
+                completed = True
                 print(
                     f"\n[done] {event.total_turns} turn(s)",
                     file=sys.stderr,
@@ -424,6 +436,7 @@ async def main()->None:
                     flush=True,
                 )
         print()
+        return completed
 
     try:
         # Team 恢复放在统一清理边界内，失败时也会关闭所有资源。
@@ -517,19 +530,21 @@ async def main()->None:
 
 
         if args.stream:
-            await run_streaming_prompt(
+            if await run_streaming_prompt(
                 args.prompt
-            )
+            ):
+                auto_memory_runner.schedule()
 
             while (
                 await wait_and_inject_task_notifications()
             ):
-                await run_streaming_prompt(
+                if await run_streaming_prompt(
                     (
                         "请根据上面的后台任务通知，"
                         "继续完成当前任务。"
                     )
-                )
+                ):
+                    auto_memory_runner.schedule()
 
         else:
             answer = await agent.run_to_completion(
@@ -538,6 +553,7 @@ async def main()->None:
                 on_compact=save_compact_boundary,
             )
             print(answer)
+            auto_memory_runner.schedule()
 
             while (
                 await wait_and_inject_task_notifications()
@@ -556,18 +572,22 @@ async def main()->None:
                     conversation.get_messages(),
                 )
                 print(answer)
+                auto_memory_runner.schedule()
 
     finally:
         try:
-            await coordinator.shutdown()
+            await auto_memory_runner.drain()
         finally:
             try:
-                await task_manager.shutdown()
+                await coordinator.shutdown()
             finally:
                 try:
-                    await mcp_manager.close()
+                    await task_manager.shutdown()
                 finally:
-                    session.close()
+                    try:
+                        await mcp_manager.close()
+                    finally:
+                        session.close()
 
 if __name__ == "__main__":
         asyncio.run(main())
