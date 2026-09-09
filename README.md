@@ -26,7 +26,9 @@ $env:AUTO_MEMORY_MAX_CANDIDATES = "3"
 
 MCP 和扩展工具可先以 deferred 状态注册。模型通过 `ToolSearch` 检索相关工具后，注册表才会激活相应 schema；已发现的工具会随会话恢复再次激活。
 
-固定 100 工具基准中，仅激活 3 个工具时，schema payload 由约 8,175 降至约 246 近似 Token，节省约 97.0%。该结果使用 UTF-8 字节数除以 4 估算 Token，详细输入和结果见 `benchmarks/`。
+`benchmarks/fixtures/tool_search_queries.json` 提供 20 条人工标注查询，覆盖准确名称、关键词、同义表达、模糊描述、无匹配和精确选择。基准逐条调用真实 `ToolSearch.execute()`，先报告旧词法策略失败案例，再报告大小写/分隔符/词形/有限同义词归一化后的结果。
+
+完整请求载荷边界明确拆分为：100 个完整 schema、工具目录、`ToolSearch` schema、以及实际发现并激活的 schema；消息体不计入字节指标。当前结果见 `benchmarks/results/tool_discovery.json`：改进策略 20 条查询命中 17 条目标、1 条误激活失败案例、2 条正确无匹配；全量 schema 为 25,545 bytes，按需请求（目录 + ToolSearch + 发现结果）为 10,813–11,275 bytes。字节除以 4 只是近似值，不是 provider Token、费用或耗时测量。
 
 ### 多 Agent 隔离
 
@@ -36,14 +38,23 @@ Coordinator 管理 Team、任务和通知。每名 teammate 使用独立 Git Wor
 
 ```powershell
 python -m pytest tests -q
-python -c "from benchmarks.tool_discovery import run_fixture; print(run_fixture('benchmarks/fixtures/tools_100.json', 'benchmarks/results/tool_discovery.json'))"
+python -m benchmarks.tool_discovery --fixture benchmarks/fixtures/tools_100.json --queries benchmarks/fixtures/tool_search_queries.json --output benchmarks/results/tool_discovery.json
+python -m json.tool benchmarks/results/tool_discovery.json
 ```
 
-测试均离线运行，不访问真实模型或 MCP 服务。
+开发环境安装：
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
+
+测试和基准均离线运行，不访问真实模型、MCP 服务或 API 密钥。
 
 ## 已知边界
 
 - 当前只支持 DashScope 的 OpenAI-compatible 接口；未实现 Anthropic 协议适配。
 - 自动记忆使用关键词敏感信息过滤，不等同于完整的数据脱敏方案。
 - 危险命令检测为规则防线，不是操作系统级安全沙箱。
-- 97.0% 是固定 fixture 的 schema payload 结果，实际收益取决于工具复杂度与已激活工具数量。
+- ToolSearch 当前是固定目录上的可解释词法检索，不等同于通用语义检索；`no-match-rocket` 仍会把 `send` 误激活到 `SendEmail`。
+- 字节/4 不是账单 Token；本项目没有据此推导费用、耗时或任务成功率收益。
+- 当前基线保留扁平包布局；从仓库根目录直接执行 `python -m novacore` 的导入限制不属于本次证据修复范围。

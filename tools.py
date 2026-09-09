@@ -24,6 +24,61 @@ SKIP_SEARCH_DIRS = {
     ".mypy_cache",
 }
 
+_SEARCH_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "find": ("search", "lookup", "locate"),
+    "lookup": ("search", "find", "locate"),
+    "locate": ("search", "find", "lookup"),
+    "search": ("find", "lookup", "locate"),
+    "manual": ("documentation", "docs", "reference"),
+    "documentation": ("manual", "docs", "reference"),
+    "docs": ("manual", "documentation", "reference"),
+    "reference": ("manual", "documentation", "docs"),
+}
+_SEARCH_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "for",
+    "from",
+    "in",
+    "into",
+    "of",
+    "on",
+    "or",
+    "something",
+    "the",
+    "through",
+    "to",
+    "with",
+}
+
+
+def _normalized_search_tokens(
+    text: str,
+    *,
+    expand_synonyms: bool,
+) -> list[str]:
+    """把查询和工具文本转换为稳定、可解释的检索词。"""
+
+    spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", text)
+    tokens = re.findall(r"[a-z0-9]+", spaced.lower())
+
+    normalized: list[str] = []
+    for token in tokens:
+        if token in _SEARCH_STOP_WORDS:
+            continue
+        if len(token) > 4 and token.endswith("s"):
+            token = token[:-1]
+        if token not in normalized:
+            normalized.append(token)
+
+        if expand_synonyms:
+            for synonym in _SEARCH_SYNONYMS.get(token, ()):
+                if synonym not in normalized:
+                    normalized.append(synonym)
+
+    return normalized
+
 
 def _resolve_work_path(
     work_dir: str | Path,
@@ -894,17 +949,25 @@ class ToolRegistry:
         self,
         query: str,
         limit: int,
+        *,
+        expand_synonyms: bool = True,
     ) -> list[str]:
-        """按名称和描述对 deferred 工具进行简单相关性排序。"""
+        """按名称和描述对 deferred 工具进行可解释的词法排序。"""
 
-        terms = [
-            term
-            for term in re.split(
-                r"\s+",
-                query.strip().lower(),
+        if expand_synonyms:
+            terms = _normalized_search_tokens(
+                query,
+                expand_synonyms=True,
             )
-            if term
-        ]
+        else:
+            terms = [
+                term
+                for term in re.split(
+                    r"\s+",
+                    query.strip().lower(),
+                )
+                if term
+            ]
 
         if not terms:
             return []
@@ -913,15 +976,29 @@ class ToolRegistry:
 
         for name in self.get_deferred_tool_names():
             tool = self._tools[name]
-            lowered_name = name.lower()
-            haystack = (
-                f"{name} {tool.description}"
-                .lower()
-            )
+            if expand_synonyms:
+                name_terms = set(
+                    _normalized_search_tokens(
+                        name,
+                        expand_synonyms=True,
+                    )
+                )
+                description_terms = set(
+                    _normalized_search_tokens(
+                        tool.description,
+                        expand_synonyms=True,
+                    )
+                )
+            else:
+                name_terms = {name.lower()}
+                description_terms = {
+                    f"{name} {tool.description}".lower()
+                }
+
             score = sum(
-                3 if term in lowered_name else 1
+                3 if term in name_terms else 1
                 for term in terms
-                if term in haystack
+                if term in name_terms or term in description_terms
             )
 
             if score:

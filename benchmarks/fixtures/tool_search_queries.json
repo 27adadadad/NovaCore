@@ -1,0 +1,168 @@
+[
+  {
+    "id": "exact-name-search",
+    "category": "exact_name",
+    "query": "select:SearchDocs",
+    "expected_names": [
+      "SearchDocs"
+    ]
+  },
+  {
+    "id": "exact-name-git",
+    "category": "exact_name",
+    "query": "select:GitDiff",
+    "expected_names": [
+      "GitDiff"
+    ]
+  },
+  {
+    "id": "exact-name-calendar",
+    "category": "exact_name",
+    "query": "select:CreateCalendarEvent",
+    "expected_names": [
+      "CreateCalendarEvent"
+    ]
+  },
+  {
+    "id": "keyword-pdf",
+    "category": "keyword",
+    "query": "pdf text",
+    "expected_names": [
+      "ExtractPdfText"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "keyword-sql",
+    "category": "keyword",
+    "query": "sql query",
+    "expected_names": [
+      "QueryDatabase"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "keyword-source-code",
+    "category": "keyword",
+    "query": "source code",
+    "expected_names": [
+      "SearchCode"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "keyword-working-tree",
+    "category": "keyword",
+    "query": "git working tree",
+    "expected_names": [
+      "GitStatus"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "synonym-find-manuals",
+    "category": "synonym",
+    "query": "find manuals",
+    "expected_names": [
+      "SearchDocs"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "synonym-locate-code",
+    "category": "synonym",
+    "query": "locate source code",
+    "expected_names": [
+      "SearchCode"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "synonym-lookup-reference",
+    "category": "synonym",
+    "query": "lookup references",
+    "expected_names": [
+      "SearchDocs"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "synonym-search-docs",
+    "category": "synonym",
+    "query": "search docs",
+    "expected_names": [
+      "SearchDocs"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "vague-api-guides",
+    "category": "vague_description",
+    "query": "look through API guides",
+    "expected_names": [
+      "SearchDocs"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "vague-read-disk",
+    "category": "vague_description",
+    "query": "read something from disk",
+    "expected_names": [
+      "ReadFile"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "vague-pdf-plain-text",
+    "category": "vague_description",
+    "query": "turn a PDF into plain text",
+    "expected_names": [
+      "ExtractPdfText"
+    ],
+    "max_results": 1
+  },
+  {
+    "id": "no-match-music",
+    "category": "no_match",
+    "query": "play music",
+    "expected_names": []
+  },
+  {
+    "id": "no-match-rocket",
+    "category": "no_match",
+    "query": "send a rocket to Mars",
+    "expected_names": []
+  },
+  {
+    "id": "no-match-translate",
+    "category": "no_match",
+    "query": "translate an audio recording",
+    "expected_names": []
+  },
+  {
+    "id": "exact-select-multiple",
+    "category": "exact_selection",
+    "query": "select:GitStatus,GitDiff",
+    "expected_names": [
+      "GitDiff",
+      "GitStatus"
+    ]
+  },
+  {
+    "id": "exact-select-pdf",
+    "category": "exact_selection",
+    "query": "select:ExtractPdfText",
+    "expected_names": [
+      "ExtractPdfText"
+    ]
+  },
+  {
+    "id": "exact-select-read",
+    "category": "exact_selection",
+    "query": "select:ReadFile",
+    "expected_names": [
+      "ReadFile"
+    ]
+  }
+]

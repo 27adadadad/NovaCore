@@ -45,8 +45,11 @@ class ToolSearch:
     def __init__(
         self,
         registry: ToolRegistry,
+        *,
+        use_synonyms: bool = True,
     ) -> None:
         self.registry = registry
+        self.use_synonyms = use_synonyms
 
     def get_schema(self) -> dict[str, Any]:
         parameters = self.params_model.model_json_schema()
@@ -77,6 +80,7 @@ class ToolSearch:
             names = self.registry.search_deferred(
                 query,
                 params.max_results,
+                expand_synonyms=self.use_synonyms,
             )
 
         schemas = self.registry.discover_many(

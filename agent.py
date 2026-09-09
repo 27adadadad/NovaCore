@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import asyncio
 from enum import Enum
 from copy import deepcopy
+from pathlib import Path
 from novacore.client import StreamEvent
 
 from novacore.client import (
@@ -23,6 +24,8 @@ from novacore.tools import ToolRegistry, ToolResult
 from novacore.serialization import build_chat_completion_messages
 
 from novacore.permissions import PermissionChecker
+from novacore.command_safety import DangerousCommandDetector
+from novacore.path_sandbox import PathSandbox
 from novacore.context import compact_conversation, CompactBoundary
 from novacore.agents.trace import (
     TraceManager,
@@ -152,7 +155,10 @@ class Agent:
         self.permission_checker = (
             permission_checker
             if permission_checker is not None
-            else PermissionChecker()
+            else PermissionChecker(
+                detector=DangerousCommandDetector(),
+                sandbox=PathSandbox(Path.cwd()),
+            )
         )
         self.max_iterations = max_iterations
         self.trace_manager = (

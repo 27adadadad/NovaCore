@@ -3,23 +3,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_001",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "SearchDocs",
+        "description": "Search technical documentation and return references for APIs, manuals, guides, and references.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -27,23 +22,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_002",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "ReadFile",
+        "description": "Read text from a local file on disk.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -51,23 +41,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_003",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "WriteFile",
+        "description": "Write text content to a local file on disk.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -75,23 +60,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_004",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "ListDirectory",
+        "description": "List files and folders in a directory.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -99,23 +79,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_005",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "DeleteFile",
+        "description": "Remove a local file from disk.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -123,23 +98,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_006",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "RunShell",
+        "description": "Execute a shell command in the project environment.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -147,23 +117,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_007",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "GitStatus",
+        "description": "Show the current Git working tree status.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -171,23 +136,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_008",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "GitDiff",
+        "description": "Compare Git file changes and show a diff.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -195,23 +155,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_009",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "GitCommit",
+        "description": "Create a Git commit with a message.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -219,23 +174,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_010",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "FetchUrl",
+        "description": "Fetch a web URL and return its response text.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -243,23 +193,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_011",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "ParseJson",
+        "description": "Parse a JSON document and report its structure.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -267,23 +212,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_012",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "ExtractPdfText",
+        "description": "Extract plain text from a PDF document.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -291,23 +231,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_013",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "RenderImage",
+        "description": "Render an image file for visual inspection.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -315,23 +250,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_014",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "SendEmail",
+        "description": "Send an email message to a recipient.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -339,23 +269,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_015",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "CreateCalendarEvent",
+        "description": "Create a calendar event with a time and attendees.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -363,23 +288,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_016",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "QueryDatabase",
+        "description": "Run a read-only SQL query against a database.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -387,23 +307,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_017",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "SearchCode",
+        "description": "Search source code for a symbol or text pattern.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -411,23 +326,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_018",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "ApplyPatch",
+        "description": "Apply a unified patch to project files.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -435,23 +345,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_019",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "InspectLogs",
+        "description": "Inspect application logs for errors and warnings.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -459,23 +364,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_020",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "SummarizeText",
+        "description": "Summarize a long text into concise notes.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -483,23 +383,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_021",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool021",
+        "description": "Perform utility operation 21 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -507,23 +402,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_022",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool022",
+        "description": "Perform utility operation 22 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -531,23 +421,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_023",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool023",
+        "description": "Perform utility operation 23 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -555,23 +440,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_024",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool024",
+        "description": "Perform utility operation 24 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -579,23 +459,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_025",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool025",
+        "description": "Perform utility operation 25 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -603,23 +478,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_026",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool026",
+        "description": "Perform utility operation 26 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -627,23 +497,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_027",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool027",
+        "description": "Perform utility operation 27 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -651,23 +516,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_028",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool028",
+        "description": "Perform utility operation 28 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -675,23 +535,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_029",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool029",
+        "description": "Perform utility operation 29 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -699,23 +554,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_030",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool030",
+        "description": "Perform utility operation 30 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -723,23 +573,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_031",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool031",
+        "description": "Perform utility operation 31 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -747,23 +592,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_032",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool032",
+        "description": "Perform utility operation 32 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -771,23 +611,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_033",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool033",
+        "description": "Perform utility operation 33 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -795,23 +630,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_034",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool034",
+        "description": "Perform utility operation 34 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -819,23 +649,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_035",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool035",
+        "description": "Perform utility operation 35 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -843,23 +668,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_036",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool036",
+        "description": "Perform utility operation 36 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -867,23 +687,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_037",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool037",
+        "description": "Perform utility operation 37 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -891,23 +706,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_038",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool038",
+        "description": "Perform utility operation 38 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -915,23 +725,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_039",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool039",
+        "description": "Perform utility operation 39 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -939,23 +744,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_040",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool040",
+        "description": "Perform utility operation 40 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -963,23 +763,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_041",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool041",
+        "description": "Perform utility operation 41 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -987,23 +782,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_042",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool042",
+        "description": "Perform utility operation 42 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1011,23 +801,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_043",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool043",
+        "description": "Perform utility operation 43 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1035,23 +820,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_044",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool044",
+        "description": "Perform utility operation 44 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1059,23 +839,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_045",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool045",
+        "description": "Perform utility operation 45 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1083,23 +858,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_046",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool046",
+        "description": "Perform utility operation 46 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1107,23 +877,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_047",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool047",
+        "description": "Perform utility operation 47 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1131,23 +896,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_048",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool048",
+        "description": "Perform utility operation 48 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1155,23 +915,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_049",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool049",
+        "description": "Perform utility operation 49 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1179,23 +934,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_050",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool050",
+        "description": "Perform utility operation 50 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1203,23 +953,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_051",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool051",
+        "description": "Perform utility operation 51 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1227,23 +972,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_052",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool052",
+        "description": "Perform utility operation 52 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1251,23 +991,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_053",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool053",
+        "description": "Perform utility operation 53 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1275,23 +1010,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_054",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool054",
+        "description": "Perform utility operation 54 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1299,23 +1029,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_055",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool055",
+        "description": "Perform utility operation 55 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1323,23 +1048,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_056",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool056",
+        "description": "Perform utility operation 56 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1347,23 +1067,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_057",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool057",
+        "description": "Perform utility operation 57 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1371,23 +1086,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_058",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool058",
+        "description": "Perform utility operation 58 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1395,23 +1105,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_059",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool059",
+        "description": "Perform utility operation 59 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1419,23 +1124,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_060",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool060",
+        "description": "Perform utility operation 60 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1443,23 +1143,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_061",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool061",
+        "description": "Perform utility operation 61 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1467,23 +1162,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_062",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool062",
+        "description": "Perform utility operation 62 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1491,23 +1181,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_063",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool063",
+        "description": "Perform utility operation 63 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1515,23 +1200,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_064",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool064",
+        "description": "Perform utility operation 64 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1539,23 +1219,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_065",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool065",
+        "description": "Perform utility operation 65 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1563,23 +1238,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_066",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool066",
+        "description": "Perform utility operation 66 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1587,23 +1257,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_067",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool067",
+        "description": "Perform utility operation 67 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1611,23 +1276,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_068",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool068",
+        "description": "Perform utility operation 68 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1635,23 +1295,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_069",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool069",
+        "description": "Perform utility operation 69 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1659,23 +1314,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_070",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool070",
+        "description": "Perform utility operation 70 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1683,23 +1333,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_071",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool071",
+        "description": "Perform utility operation 71 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1707,23 +1352,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_072",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool072",
+        "description": "Perform utility operation 72 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1731,23 +1371,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_073",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool073",
+        "description": "Perform utility operation 73 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1755,23 +1390,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_074",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool074",
+        "description": "Perform utility operation 74 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1779,23 +1409,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_075",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool075",
+        "description": "Perform utility operation 75 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1803,23 +1428,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_076",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool076",
+        "description": "Perform utility operation 76 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1827,23 +1447,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_077",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool077",
+        "description": "Perform utility operation 77 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1851,23 +1466,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_078",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool078",
+        "description": "Perform utility operation 78 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1875,23 +1485,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_079",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool079",
+        "description": "Perform utility operation 79 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1899,23 +1504,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_080",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool080",
+        "description": "Perform utility operation 80 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1923,23 +1523,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_081",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool081",
+        "description": "Perform utility operation 81 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1947,23 +1542,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_082",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool082",
+        "description": "Perform utility operation 82 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1971,23 +1561,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_083",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool083",
+        "description": "Perform utility operation 83 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -1995,23 +1580,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_084",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool084",
+        "description": "Perform utility operation 84 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2019,23 +1599,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_085",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool085",
+        "description": "Perform utility operation 85 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2043,23 +1618,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_086",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool086",
+        "description": "Perform utility operation 86 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2067,23 +1637,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_087",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool087",
+        "description": "Perform utility operation 87 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2091,23 +1656,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_088",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool088",
+        "description": "Perform utility operation 88 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2115,23 +1675,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_089",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool089",
+        "description": "Perform utility operation 89 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2139,23 +1694,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_090",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool090",
+        "description": "Perform utility operation 90 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2163,23 +1713,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_091",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool091",
+        "description": "Perform utility operation 91 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2187,23 +1732,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_092",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool092",
+        "description": "Perform utility operation 92 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2211,23 +1751,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_093",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool093",
+        "description": "Perform utility operation 93 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2235,23 +1770,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_094",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool094",
+        "description": "Perform utility operation 94 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2259,23 +1789,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_095",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool095",
+        "description": "Perform utility operation 95 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2283,23 +1808,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_096",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool096",
+        "description": "Perform utility operation 96 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2307,23 +1827,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_097",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool097",
+        "description": "Perform utility operation 97 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2331,23 +1846,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_098",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool098",
+        "description": "Perform utility operation 98 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2355,23 +1865,18 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_099",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool099",
+        "description": "Perform utility operation 99 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Query or path"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
@@ -2379,31 +1884,26 @@
     {
       "type": "function",
       "function": {
-        "name": "search_tool_100",
-        "description": "Search a documentation corpus and return matching technical references.",
+        "name": "UtilityTool100",
+        "description": "Perform utility operation 100 for deterministic fixture coverage.",
         "parameters": {
           "type": "object",
           "properties": {
-            "query": {
+            "input": {
               "type": "string",
-              "description": "Keywords to search."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 20
+              "description": "Input value"
             }
           },
           "required": [
-            "query"
+            "input"
           ]
         }
       }
     }
   ],
   "discovered_names": [
-    "search_tool_001",
-    "search_tool_002",
-    "search_tool_003"
+    "SearchDocs",
+    "ReadFile",
+    "GitDiff"
   ]
 }

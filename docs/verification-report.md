@@ -1,36 +1,61 @@
 # 验证报告
 
-日期：2026-08-15  
-分支：`feat/agent-resume-alignment`
+日期：2026-09-09
+分支：`codex/novacore-evidence`，基线为 `feat/agent-resume-alignment`
 
 ## 命令与结果
 
 ```text
 python -m pytest tests -q
-15 passed in 1.48s
+23 passed in 1.02s
 ```
 
-覆盖范围：自动记忆候选过滤与幂等写入、后台调度、配置开关、上下文工具调用配对、延迟工具发现 payload、危险命令、严格路径沙箱和 Worktree 隔离。
+测试全部离线执行，使用 Fake SDK/FakeClient 和 pytest 临时目录，覆盖：
+
+- 多个流式 tool-call index 交错返回、名称/参数分片、非法/截断 JSON、缺少 id/name；
+- ToolSearch 同义表达、发现后下一轮暴露 schema、无匹配处理；
+- 上下文压缩后的 tool use/result 配对；
+- Session 保存恢复与 deferred 工具恢复；
+- 自动记忆、权限、危险命令、路径沙箱和 Worktree 隔离。
+
+基准命令：
 
 ```text
-100 工具 fixture，发现 3 工具
-全量 schema：32,701 bytes / 8,175 近似 Token
-已发现 schema：982 bytes / 246 近似 Token
-节省比例：97.0%
+python -m benchmarks.tool_discovery --fixture benchmarks/fixtures/tools_100.json --queries benchmarks/fixtures/tool_search_queries.json --output benchmarks/results/tool_discovery.json
+python -m json.tool benchmarks/results/tool_discovery.json
 ```
 
-Token 为 UTF-8 字节数除以 4 的近似值，并非 API 的实际账单 Token。
+结果文件可解析。20 条查询的真实 `ToolSearch.execute()` 结果：
 
-## 简历可用表述
+```text
+baseline: target_hit=6, target_miss=11, false_activation_queries=0, correct_no_match=3, failures=11
+improved: target_hit=17, target_miss=0, false_activation_queries=1, correct_no_match=2, failures=1
+improved failure: no-match-rocket -> SendEmail was activated by the broad word "send"
+```
 
-- 自动记忆：任务完成后异步提取稳定信息；候选经 JSON 校验、敏感信息过滤和标题幂等更新后，写入用户/项目双作用域长期记忆。
-- 延迟工具发现：固定 100 工具基准中，激活 3 工具时 schema payload 由约 8.2k 降至约 0.25k 近似 Token。
-- 上下文压缩：历史摘要压缩并保留近期消息，且测试验证工具调用与工具结果不会被拆开。
-- 多 Agent：teammate 在独立 Git Worktree 内运行，严格路径沙箱拒绝访问兄弟 Worktree。
+载荷边界：
 
-## 不应写入简历的表述
+```text
+full schemas: 25,545 bytes
+full request wrapper: 25,555 bytes
+tool catalog: 10,245 bytes
+ToolSearch schema: 542 bytes
+deferred request per query: 10,813–11,275 bytes, average 11,048.7 bytes
+discovered schema per query: average 236.8 bytes
+messages: excluded
+```
 
-- 不支持 Anthropic 协议，不应写多供应商协议适配。
-- 未实现显式 Plan Mode，不应写 Plan → Execute 双模式。
-- 当前压缩不是“已验证的两层压缩”，不应写两层渐进式压缩。
-- 未完成端到端吞吐压测，不应写“效率成倍提升”或“突破单 Agent 上下文窗口”。
+字节/4 仅为近似 Token 展示，不是 provider 账单 Token，也没有推导费用、耗时或成功率收益。
+
+## 当前限制
+
+- ToolSearch 是固定目录上的词法检索和有限同义词归一化，不等同于向量或通用语义搜索。
+- 仍保留 1 条可解释的误激活失败案例，评测结果没有把人工标注直接当作检索结果。
+- 当前只支持 DashScope 的 OpenAI-compatible 接口；没有新增多供应商协议或显式 Plan→Execute 流程。
+- 当前基线为扁平包布局；`python -m novacore` 从仓库根目录的导入限制未纳入本次修复。
+
+## 可用于简历的表述
+
+- 设计 deferred ToolSearch 评测链路：以 100 工具目录和 20 条人工标注查询为输入，调用真实 ToolSearch，统计命中、误激活、无匹配和按需载荷边界；改进策略命中 17/17 个有目标查询，并保留失败案例。
+- 完善 AsyncOpenAI 流式 Function Calling 解析：按 tool-call index 缓冲交错 delta 和参数分片，在完整 JSON 后发出工具事件；离线测试覆盖非法/截断 JSON 与缺失 id/name。
+- 完善上下文与会话管理验证：用临时目录测试压缩边界、tool use/result id 配对、Session JSONL 保存恢复和 deferred 工具恢复，完整测试集实际 `23 passed`。
