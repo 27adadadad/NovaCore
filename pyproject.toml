@@ -17,9 +17,9 @@ novacore = "novacore.__main__:main"
 [dependency-groups]
 dev = [
     "pytest>=9.0.0",
+    "pytest-asyncio>=1.2.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--basetemp=.pytest-tmp"
