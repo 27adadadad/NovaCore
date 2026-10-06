@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "novacore"
 version = "0.1.0"
@@ -12,7 +16,15 @@ dependencies = [
 ]
 
 [project.scripts]
-novacore = "novacore.__main__:main"
+novacore = "novacore.__main__:cli"
+
+[tool.setuptools.packages.find]
+include = ["novacore*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+"novacore.agents.builtins" = ["*.md"]
+"novacore.examples" = ["*.json", "agents/*.md", "skills/*/SKILL.md"]
 
 [dependency-groups]
 dev = [

@@ -32,14 +32,12 @@ from novacore.path_sandbox import PathSandbox
 from novacore.command_safety import DangerousCommandDetector
 
 
-from novacore.tui import run_tui
 from novacore.conversation import ConversationManager
 from novacore.session import SessionManager, make_compact_boundary
 from novacore.context import (
     CompactBoundary,
     compact_conversation,
 )
-from novacore.mcp import MCPManager, load_mcp_server_configs
 from novacore.skills import (
     LoadSkill,
     SkillLoader,
@@ -128,8 +126,15 @@ async def main()->None:
 
     sandbox = PathSandbox(project_root=Path.cwd())
 
-    config = load_config()
-    auto_memory_settings = load_auto_memory_settings()
+    try:
+        config = load_config()
+        auto_memory_settings = load_auto_memory_settings()
+    except RuntimeError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
+
+    from novacore.mcp import MCPManager, load_mcp_server_configs
+
     client = DashScopeClient(config)
     registry = create_default_registry(
         work_dir=sandbox.project_root
@@ -486,6 +491,8 @@ async def main()->None:
                 )
 
         if args.prompt is None:
+            from novacore.tui import run_tui
+
             await run_tui(
                 agent,
                 conversation,
@@ -589,5 +596,10 @@ async def main()->None:
                     finally:
                         session.close()
 
+def cli() -> None:
+    """Synchronous entry point shared by module and installed console script."""
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
-        asyncio.run(main())
+    cli()

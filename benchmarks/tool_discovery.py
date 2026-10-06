@@ -9,33 +9,6 @@ from typing import Any
 from pydantic import BaseModel
 
 
-def _load_novacore_for_flat_checkout() -> None:
-    """让 benchmark CLI 复用旧版 flat checkout 的包导入方式。"""
-
-    try:
-        import novacore  # noqa: F401
-        return
-    except ModuleNotFoundError:
-        pass
-
-    import importlib.util
-    import sys
-
-    package_root = Path(__file__).resolve().parents[1]
-    spec = importlib.util.spec_from_file_location(
-        "novacore",
-        package_root / "__init__.py",
-        submodule_search_locations=[str(package_root)],
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("could not load NovaCore package from the checkout")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["novacore"] = module
-    spec.loader.exec_module(module)
-
-
-_load_novacore_for_flat_checkout()
-
 from novacore.tool_search import ToolSearch
 from novacore.tools import ToolRegistry, ToolResult
 

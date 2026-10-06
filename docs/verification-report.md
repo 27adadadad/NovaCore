@@ -1,5 +1,7 @@
 # 验证报告
 
+> 这是 2026-09-09 的历史记录。2026-10-06 复核确认：baseline 不代表历史原算法，不能发布“6/17 提升至 17/17”的命中率结论；载荷字段排除了发现消息，不是完整模型请求。流式测试覆盖参数分片，而非工具名称分片；压缩测试只验证切分边界，不是完整压缩—保存—恢复链路。最新启动验证见 [verification-startup.md](verification-startup.md)。
+
 日期：2026-09-09
 分支：`codex/novacore-evidence`，基线为 `feat/agent-resume-alignment`
 
