@@ -48,40 +48,6 @@ class Client(Protocol):
         ...
         
 
-class FakeClient:
-    def __init__(
-        self, 
-        tool_name,
-        tool_arguments:dict[str, Any],
-        final_text:str,
-    )->None:
-        self.tool_name = tool_name
-        self.tool_arguments = tool_arguments
-        self.final_text = final_text
-        self.calls = 0
-
-    async def complete(
-        self, 
-        messages:list[dict[str,Any]],
-        tools:list[dict[str, Any]]
-    )->ClientResponse:
-        self.calls +=1
-        has_tool_result = any(message["role"]=="tool" for message in messages)
-
-        if not has_tool_result:
-            return ClientResponse(
-                tool_calls=[
-                    ToolCall(
-                        tool_id="call_1",
-                        tool_name=self.tool_name,
-                        arguments=self.tool_arguments,
-                    )
-                ]
-            )
-        
-        return ClientResponse(text=self.final_text)
-        
-
 class DashScopeClient:
     def __init__(self, config:Config)->None:
         self._sdk = AsyncOpenAI(

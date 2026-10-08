@@ -25,14 +25,3 @@ namespaces = false
 [tool.setuptools.package-data]
 "novacore.agents.builtins" = ["*.md"]
 "novacore.examples" = ["*.json", "agents/*.md", "skills/*/SKILL.md"]
-
-[dependency-groups]
-dev = [
-    "pytest>=9.0.0",
-    "pytest-asyncio>=1.2.0",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-asyncio_mode = "auto"
-addopts = "--basetemp=.pytest-tmp"
