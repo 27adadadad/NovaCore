@@ -8,6 +8,7 @@ from novacore.serialization import (
     build_chat_completion_messages,
 )
 from novacore.client import Client
+from novacore.task_state import TaskState
 
 
 
@@ -297,6 +298,12 @@ async def compact_conversation(
         conversation.get_messages()
     )
 
+    # Runtime state survives exactly; never ask the summarizer to reconstruct it.
+    latest_state = next((m for m in reversed(conversation.get_messages())
+                         if TaskState.from_payload(m.task_state) is not None), None)
+    to_summarize = [m for m in to_summarize if m.task_state is None]
+    keep_recent = [m for m in keep_recent if m.task_state is None]
+
     if _prefix_too_small_to_compact(to_summarize):
         return None
 
@@ -304,6 +311,9 @@ async def compact_conversation(
         client,
         to_summarize,
     )
+
+    if latest_state is not None:
+        keep_recent.append(latest_state)
 
     new_messages = build_compact_messages(
         summary,

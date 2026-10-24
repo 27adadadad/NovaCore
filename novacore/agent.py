@@ -204,6 +204,9 @@ class Agent:
         self,
         tool_call:ToolCall,
     )->ToolResult:
+        state = self._current_conversation.task_state if self._current_conversation else None
+        if state is not None and state.blocks(tool_call.tool_name, tool_call.arguments):
+            return ToolResult(output="Repeated identical failed operation blocked; change approach or ask the user.", is_error=True)
         tool = self.registry.get(
             tool_call.tool_name
         )
@@ -301,6 +304,10 @@ class Agent:
     )->AsyncIterator[
         PermissionRequest | ToolResult
     ]:
+        state = self._current_conversation.task_state if self._current_conversation else None
+        if state is not None and state.blocks(tool_call.tool_name, tool_call.arguments):
+            yield ToolResult(output="Repeated identical failed operation blocked; change approach or ask the user.", is_error=True)
+            return
         tool = self.registry.get(
             tool_call.tool_name
         )
@@ -378,7 +385,9 @@ class Agent:
                 conversation = ConversationManager()
 
             self._current_conversation = conversation
+            conversation.begin_task(prompt)
             conversation.add_user_message(prompt)
+            conversation.publish_task_state()
 
             for _iteration in range(self.max_iterations):
                 # 每轮模型调用开始前触发 TURN_START。
@@ -403,6 +412,8 @@ class Agent:
                 ):
                     on_compact(compact_event.boundary)
 
+                conversation.publish_task_state()
+
                 messages = build_chat_completion_messages(
                     conversation.get_messages()
                 )
@@ -423,6 +434,8 @@ class Agent:
 
                 if not response.tool_calls:
                     conversation.add_assistant_message(response.text)
+                    conversation.task_state.phase = "response_returned"
+                    conversation.publish_task_state()
 
                     # 最终助手消息保存后，本轮处理结束。
                     await self.hook_engine.emit(
@@ -491,6 +504,11 @@ class Agent:
                             )
                         )
 
+                    conversation.task_state.observe(
+                        tool_call.tool_id, tool_call.tool_name, tool_call.arguments,
+                        result.output, result.is_error,
+                    )
+
                     tool_results.append(
                         ToolResultBlock(
                             tool_use_id=tool_call.tool_id,
@@ -499,6 +517,7 @@ class Agent:
                         )
                     )
                 conversation.add_tool_results_message(tool_results)
+                conversation.publish_task_state()
 
                 # 工具结果保存后，本轮处理结束。
                 await self.hook_engine.emit(
@@ -509,6 +528,8 @@ class Agent:
                     )
                 )
 
+            conversation.task_state.phase = "iteration_limit"
+            conversation.publish_task_state()
             self.trace_manager.complete(
                 trace.agent_id,
                 status="failed",
@@ -519,6 +540,9 @@ class Agent:
             raise RuntimeError("Agent reached maximum iterations")
 
         except asyncio.CancelledError:
+            if conversation is not None and conversation.task_state is not None:
+                conversation.task_state.phase = "cancelled"
+                conversation.publish_task_state()
             self.trace_manager.complete(
                 trace.agent_id,
                 status="cancelled",
@@ -526,6 +550,9 @@ class Agent:
             raise
 
         finally:
+            if conversation is not None and conversation.task_state is not None and conversation.task_state.phase == "running":
+                conversation.task_state.phase = "error"
+                conversation.publish_task_state()
             if self._current_conversation is conversation:
                 self._current_conversation = None
 
@@ -549,7 +576,9 @@ class Agent:
                 conversation = ConversationManager()
 
             self._current_conversation = conversation
+            conversation.begin_task(prompt)
             conversation.add_user_message(prompt)
+            conversation.publish_task_state()
 
             for _iteration in range(self.max_iterations):
                 # 流式模式也必须触发相同的 TURN_START。
@@ -576,6 +605,8 @@ class Agent:
                         ),
                         boundary=compact_event.boundary,
                     )
+
+                conversation.publish_task_state()
 
                 messages = build_chat_completion_messages(
                     conversation.get_messages()
@@ -604,6 +635,8 @@ class Agent:
 
                 if not response.tool_calls:
                     conversation.add_assistant_message(response.text)
+                    conversation.task_state.phase = "response_returned"
+                    conversation.publish_task_state()
 
                     # 最终助手消息保存后，本轮处理结束。
                     await self.hook_engine.emit(
@@ -704,6 +737,11 @@ class Agent:
                         is_error = result.is_error,
                     )
 
+                    conversation.task_state.observe(
+                        tool_call.tool_id, tool_call.tool_name, tool_call.arguments,
+                        result.output, result.is_error,
+                    )
+
                     tool_results.append(
                         ToolResultBlock(
                             tool_use_id=tool_call.tool_id,
@@ -715,6 +753,7 @@ class Agent:
                 conversation.add_tool_results_message(
                     tool_results
                 )
+                conversation.publish_task_state()
 
                 # 工具结果保存后，本轮处理结束。
                 await self.hook_engine.emit(
@@ -729,6 +768,8 @@ class Agent:
                     turn=_iteration+1,
                 )
 
+            conversation.task_state.phase = "iteration_limit"
+            conversation.publish_task_state()
             self.trace_manager.complete(
                 trace.agent_id,
                 status="failed",
@@ -742,6 +783,9 @@ class Agent:
             )
 
         except asyncio.CancelledError:
+            if conversation is not None and conversation.task_state is not None:
+                conversation.task_state.phase = "cancelled"
+                conversation.publish_task_state()
             self.trace_manager.complete(
                 trace.agent_id,
                 status="cancelled",
@@ -749,6 +793,9 @@ class Agent:
             raise
 
         finally:
+            if conversation is not None and conversation.task_state is not None and conversation.task_state.phase == "running":
+                conversation.task_state.phase = "error"
+                conversation.publish_task_state()
             if self._current_conversation is conversation:
                 self._current_conversation = None
 

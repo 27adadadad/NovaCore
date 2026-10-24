@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any, IO
 
 from novacore.conversation import Message, ToolResultBlock, ToolUseBlock
+from novacore.task_state import TaskState, render_task_state
 from novacore.context import(
     build_compact_messages,
 )
@@ -60,6 +61,7 @@ class RecordType(str, Enum):
     ASSISTANT = "assistant"
     TOOL_RESULT = "tool_result"
     COMPACT_BOUNDARY = "compact_boundary"
+    TASK_STATE = "task_state"
 
 @dataclass
 class SessionRecord:
@@ -124,6 +126,10 @@ class SessionRecord:
     )->list[SessionRecord]:
         now = datetime.now(timezone.utc)
         records:list[SessionRecord]=[]
+
+        state = TaskState.from_payload(message.task_state)
+        if state is not None:
+            return [cls(type=RecordType.TASK_STATE, content=state.payload(), timestamp=now)]
 
         if message.tool_results:
             for tool_result in message.tool_results:
@@ -348,6 +354,13 @@ def records_to_messages(
                 )
             )
             pending_tool_results = []
+
+        if record.type == RecordType.TASK_STATE:
+            state = TaskState.from_payload(record.content)
+            if state is not None:
+                payload = state.payload()
+                messages.append(Message(role="user", content=render_task_state(payload), task_state=payload))
+            continue
 
         if record.type == RecordType.COMPACT_BOUNDARY:
             summary, keep_messages = (
