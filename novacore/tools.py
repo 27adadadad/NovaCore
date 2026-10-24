@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import re
+import json
+import os
+
+from novacore.validation import validate_written_file
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -676,7 +680,9 @@ class WriteFile:
     name = "WriteFile"
     description = (
         "Write content to a file, creating parent "
-        "directories if needed. Overwrites existing files."
+        "directories if needed. Overwrites existing files. Returns JSON with "
+        "separate write_status and validation results. Saved does not mean "
+        "validated: fix reported diagnostics before claiming correctness."
     )
     category:ToolCategory = "write"
     params_model = WriteFileParams
@@ -684,7 +690,11 @@ class WriteFile:
     def __init__(
         self,
         work_dir: str | Path | None = None,
+        *,
+        enable_ruff: bool | None = None,
     ) -> None:
+        self.enable_ruff = (os.getenv("NOVACORE_RUFF_ENABLED", "false").lower() == "true"
+                            if enable_ruff is None else enable_ruff)
         self.work_dir = (
             Path(work_dir).expanduser().resolve()
             if work_dir is not None
@@ -735,12 +745,14 @@ class WriteFile:
                 is_error=True,
             )
         
-        return ToolResult(
-            output=(
-                f"Successfully wrote to "
-                f"{params.file_path}"
-            )
+        validation = await validate_written_file(
+            path, params.content, enable_ruff=self.enable_ruff,
         )
+        return ToolResult(output=json.dumps({
+            "write_status": "saved",
+            "file_path": params.file_path,
+            "validation": validation,
+        }, ensure_ascii=False))
     
 class Bash:
     name = "Bash"
