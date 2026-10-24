@@ -1,13 +1,16 @@
 """Small runtime-owned task facts, separate from model claims and long-term memory."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+import re
 from typing import Any
 
 TASK_STATE_PREFIX = "[novacore-task-state]\n"
 MAX_IDENTICAL_FAILURES = 3
+MAX_COUNTED_TOOLS = 128
+_TOOL_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _PHASES = {"running", "response_returned", "iteration_limit", "cancelled", "error"}
 _VALIDATION = {"not_applicable", "passed", "failed", "skipped", "checker_error"}
 
@@ -24,12 +27,28 @@ class TaskState:
     last_validation: str = "not_applicable"
     signature: str = ""
     identical_failures: int = 0
+    tool_counts: dict[str, int] = field(default_factory=dict)
+    tool_counts_complete: bool = True
 
     @classmethod
     def from_payload(cls, payload: Any) -> TaskState | None:
         if not isinstance(payload, dict) or type(payload.get("schema")) is not int or payload.get("schema") != 1:
             return None
         fields = {key: payload.get(key) for key in cls.__dataclass_fields__}
+        counts = payload.get("tool_counts", {})
+        if not isinstance(counts, dict) or len(counts) > MAX_COUNTED_TOOLS:
+            return None
+        for name, count in counts.items():
+            if (not isinstance(name, str) or not _TOOL_NAME.fullmatch(name)
+                    or type(count) is not int or not 1 <= count <= 1_000_000):
+                return None
+        fields["tool_counts"] = dict(counts)
+        # Older snapshots have no per-tool history. Do not infer a distribution
+        # from their aggregate attempts or silently label it complete.
+        fields["tool_counts_complete"] = payload.get(
+            "tool_counts_complete", "tool_counts" in payload or payload.get("attempts") == 0)
+        if type(fields["tool_counts_complete"]) is not bool:
+            return None
         for key in ("revision", "attempts", "identical_failures"):
             if type(fields[key]) is not int or not 0 <= fields[key] <= 1_000_000:
                 return None
@@ -76,6 +95,13 @@ class TaskState:
         )
         self.signature = signature
         self.attempts = min(self.attempts + 1, 1_000_000)
+        if _TOOL_NAME.fullmatch(name) and (name in self.tool_counts or len(self.tool_counts) < MAX_COUNTED_TOOLS):
+            count = self.tool_counts.get(name, 0)
+            self.tool_counts[name] = min(count + 1, 1_000_000)
+            if count == 1_000_000:
+                self.tool_counts_complete = False
+        else:
+            self.tool_counts_complete = False
         self.last_tool = name[:64]
         self.last_tool_id = tool_id[:128]
         self.last_operation = "failed" if is_error else "succeeded"
@@ -92,7 +118,11 @@ class TaskState:
             next_action = "Resolve checker availability; do not claim validation passed."
         else:
             next_action = "Continue the task; tool success alone does not establish task completion."
+        count = self.tool_counts.get(self.last_tool)
+        label = (f"Tool call #{count} for '{self.last_tool}' (observed task attempts)"
+                 if count is not None else None)
         return {"schema": 1, **asdict(self), "next_action": next_action,
+                "counter_scope": "handled_task_attempts", "tool_call_label": label,
                 "note": "Runtime context, not a new user request. Only the newest snapshot is current."}
 
 
