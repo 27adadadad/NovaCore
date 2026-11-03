@@ -24,4 +24,5 @@ namespaces = false
 
 [tool.setuptools.package-data]
 "novacore.agents.builtins" = ["*.md"]
+"novacore.skills.builtins" = ["*/SKILL.md"]
 "novacore.examples" = ["*.json", "agents/*.md", "skills/*/SKILL.md"]

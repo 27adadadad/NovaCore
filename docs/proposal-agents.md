@@ -1,5 +1,7 @@
 # 真正的 Proposer / Reviewer Agent
 
+希望不再手填命令参数？使用[内置 Skill＋专用调用工具](proposal-skill.md)。
+
 此模式复用 NovaCore 的 `Agent.run_to_completion`。两个角色各有自己的
 `ConversationManager`、系统提示、工具注册表和运行轨迹；模型可以选择工具、
 观察返回值，再决定下一步。不再是固定两次文本生成。
