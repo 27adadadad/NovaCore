@@ -293,6 +293,9 @@ async def review_fix(job, client=None):
     state, snapshot, workspace = workspace_state(job)
     if state['status'] != 'candidate_ready':
         raise ReviewError('A candidate without failed syntax checks is required')
+    prefix = 'local-review' if client is not None else 'local-review-preparation'
+    if (job / (prefix + '.json')).exists() or (job / (prefix + '.md')).exists():
+        raise ReviewError('This local review output already exists; it will not be overwritten')
     local = deepcopy(snapshot)
     for entry in local['files']:
         if entry['file'] in state['candidate_hashes']:
@@ -300,7 +303,11 @@ async def review_fix(job, client=None):
             entry['patch'] = ''.join(difflib.unified_diff(
                 entry['before'].splitlines(keepends=True), entry['after'].splitlines(keepends=True),
                 fromfile='a/' + entry['file'], tofile='b/' + entry['file']))
-    save(job / 'local-snapshot.json', local)
+    if (job / 'local-snapshot.json').exists():
+        if read_json(job / 'local-snapshot.json') != local:
+            raise ReviewError('Previously prepared local snapshot differs')
+    else:
+        save(job / 'local-snapshot.json', local)
     report = empty_report(local)
     if client is not None:
         if state['rereview_attempts']:
@@ -311,8 +318,8 @@ async def review_fix(job, client=None):
         workspace_state(job)
     report.update(review_scope='local_uncommitted_fix', candidate_hashes=state['candidate_hashes'])
     report['limitations'].append('head_sha identifies the source PR, not a committed repair; candidate_hashes identify the local repair.')
-    save(job / 'local-review.json', report)
-    (job / 'local-review.md').write_text(render_report(report) + '\nScope: local uncommitted fix; source head SHA is NOT a repair commit.\n', encoding='utf-8')
+    save(job / (prefix + '.json'), report)
+    (job / (prefix + '.md')).write_text(render_report(report) + '\nScope: local uncommitted fix; source head SHA is NOT a repair commit.\n', encoding='utf-8')
     return report
 
 
@@ -320,6 +327,7 @@ def cli(argv=None):
     parser = argparse.ArgumentParser(description='Human-selected isolated PR repair')
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument('--review-dir', type=Path, help='Completed PR review directory')
+    mode.add_argument('--propose-fix', type=Path, help='Use the existing human-selected prepared job')
     mode.add_argument('--review-fix', type=Path, help='Prepare/review an existing local repair')
     parser.add_argument('--repo', type=Path, help='Local repo checked out at the reviewed head')
     parser.add_argument('--finding', type=int, action='append', help='Explicit selected finding number (1-based)')
@@ -328,8 +336,8 @@ def cli(argv=None):
     args = parser.parse_args(argv)
     if args.review_dir and (not args.repo or not args.finding or not args.output):
         parser.error('--review-dir requires --repo, --finding and --output')
-    if args.review_fix and any((args.repo, args.finding, args.output)):
-        parser.error('--review-fix cannot be combined with repair preparation arguments')
+    if (args.review_fix or args.propose_fix) and any((args.repo, args.finding, args.output)):
+        parser.error('Existing-job modes cannot be combined with repair preparation arguments')
     client = None
     async def run():
         nonlocal client
@@ -338,7 +346,9 @@ def cli(argv=None):
             if not args.confirm_paid:
                 return {'status': state['status'], 'workspace': state['workspace']}, 0
         else:
-            workspace_state(args.review_fix)  # Validate before loading model configuration.
+            state, _, _ = workspace_state(args.review_fix or args.propose_fix)
+            if args.propose_fix and not args.confirm_paid:
+                return {'status': state['status'], 'workspace': state['workspace']}, 0
         if args.confirm_paid:
             from novacore.config import load_config
             from novacore.pr_review import LiveReviewClient
@@ -347,7 +357,7 @@ def cli(argv=None):
             result = await review_fix(args.review_fix, client)
             return {'status': result['verdict'], 'model_status': result['model_status']}, (
                 {'no_findings': 0, 'request_changes': 1, 'inconclusive': 2}[result['verdict']] if client else 0)
-        result = await propose_fix(args.output, client)
+        result = await propose_fix(args.output or args.propose_fix, client)
         return {'status': result['status'], 'workspace': result['workspace']}, (0 if result['status'] == 'candidate_ready' else 2)
     async def execute():
         try:
