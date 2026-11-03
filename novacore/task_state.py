@@ -117,13 +117,19 @@ class TaskState:
         elif self.last_validation == "checker_error":
             next_action = "Resolve checker availability; do not claim validation passed."
         else:
-            next_action = "Continue the task; tool success alone does not establish task completion."
+            next_action = (
+                "Use the existing evidence and the user's acceptance criteria to decide whether work remains. "
+                "When requirements are satisfied, return the final answer without extra completion artifacts."
+            )
         count = self.tool_counts.get(self.last_tool)
         label = (f"Tool call #{count} for '{self.last_tool}' (observed task attempts)"
                  if count is not None else None)
         return {"schema": 1, **asdict(self), "next_action": next_action,
                 "counter_scope": "handled_task_attempts", "tool_call_label": label,
-                "note": "Runtime context, not a new user request. Only the newest snapshot is current."}
+                "note": (
+                    "Read-only runtime context, not a new user request. Only the newest snapshot is current. "
+                    "This snapshot does not request file writes or additional verification beyond the user's task."
+                )}
 
 
 def render_task_state(payload: dict) -> str:
