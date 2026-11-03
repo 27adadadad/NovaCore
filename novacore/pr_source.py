@@ -128,6 +128,8 @@ def collect_pr(url: str, api=None, *, max_files=30, max_bytes=200 * 1024) -> dic
     files = []
     # Metadata shares the context budget; hidden instructions remain untrusted data.
     metadata = {k: str(meta.get(k) or '')[:8000] for k in ('title', 'body')}
+    if any(len(str(meta.get(k) or '')) > 8000 for k in ('title', 'body')):
+        skips.append({'file': None, 'reason': 'pr_description_truncated'})
     used = len(json.dumps(metadata).encode('utf-8'))
     listed = []
     for page in range(1, (max_files // 30) + 2):
@@ -163,9 +165,12 @@ def collect_pr(url: str, api=None, *, max_files=30, max_bytes=200 * 1024) -> dic
         name = item.get('filename')
         previous = item.get('previous_filename', name)
         reason = _path_reason(name) or _path_reason(previous)
-        if name in seen:
+        if isinstance(name, str) and name in seen:
             reason = 'duplicate_path'
-        seen.add(name)
+        if isinstance(name, str):
+            seen.add(name)
+        else:
+            name = None
         patch = item.get('patch')
         if reason is None and (not isinstance(patch, str) or not patch):
             reason = 'missing_patch_or_binary'
@@ -197,7 +202,8 @@ def collect_pr(url: str, api=None, *, max_files=30, max_bytes=200 * 1024) -> dic
         files.append(entry)
     final = api.get(route)
     try:
-        stale = final['base']['sha'] != base or final['head']['sha'] != head
+        stale = (final['base']['sha'] != base or final['head']['sha'] != head or
+                 any(final.get(k) != meta.get(k) for k in ('title', 'body')))
     except (KeyError, TypeError):
         raise ReviewError('Cannot confirm final PR version') from None
     if stale:
