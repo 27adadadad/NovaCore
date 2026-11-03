@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import difflib
 from pathlib import Path
 from typing import Literal
 
@@ -12,6 +13,23 @@ from novacore.permissions import Decision
 from novacore.pr_source import ReviewError
 from novacore.tools import ToolRegistry, ToolResult
 from novacore.validation import validate_written_file
+
+
+def unified_patch(name, before, after):
+    lines = difflib.unified_diff(before.splitlines(keepends=True), after.splitlines(keepends=True),
+                                fromfile='a/' + name, tofile='b/' + name)
+    return ''.join(line if line.endswith('\n') else line + '\n\\ No newline at end of file\n'
+                   for line in lines)
+
+
+def candidate_diff(job):
+    state, snapshot, workspace = pp.workspace_state(job)
+    chunks = [unified_patch(f['file'], f['before'], (workspace / f['file']).read_bytes().decode('utf-8'))
+              for f in snapshot['files'] if f['file'] in state['original_hashes']]
+    result = ''.join(chunks)
+    if len(result.encode('utf-8')) > 200000:
+        raise ReviewError('Diff exceeds review limit')
+    return result
 
 
 class Params(BaseModel):
@@ -77,11 +95,8 @@ class Scope:
                     break
             result = json.dumps(hits, ensure_ascii=False)
         elif name == 'GetDiff':
-            patch = pp.git(workspace, 'diff', '--no-ext-diff', '--no-textconv', '--binary',
-                           '--', *sorted(state['original_hashes']))
-            if len(patch) > 200000:
-                raise ReviewError('Diff exceeds review limit')
-            result = patch.decode('utf-8')
+            # Pure text diff: Git clean/smudge/textconv drivers must never execute here.
+            result = candidate_diff(self.job)
         elif name == 'CheckCandidate':
             checks = {file: await validate_written_file(workspace / file,
                       self.text(file, 'candidate'), enable_ruff=False)

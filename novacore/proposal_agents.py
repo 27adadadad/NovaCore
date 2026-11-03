@@ -14,7 +14,7 @@ from novacore.conversation import ConversationManager, Message
 from novacore import pr_proposer as pp
 from novacore.pr_review import ReviewReply, changed_lines, empty_report, render_report
 from novacore.pr_source import ReviewError
-from novacore.proposal_agent_tools import make_registry, RolePermission
+from novacore.proposal_agent_tools import make_registry, RolePermission, candidate_diff, unified_patch
 from novacore.proposal_review import prepare_proposal
 
 
@@ -178,11 +178,13 @@ async def run_agent_pair(job, proposer_client, reviewer_client, *, max_requests=
             raise ReviewError('Candidate checks failed')
         state.update(status='candidate_ready', validation=checked['checks'])
         pp.save(job / 'fix-report.json', state)
-        patch = pp.git(workspace, 'diff', '--no-ext-diff', '--no-textconv', '--binary',
-                       '--', *sorted(state['original_hashes']))
-        (job / 'changes.patch').write_bytes(patch)
+        (job / 'changes.patch').write_bytes(candidate_diff(job).encode('utf-8'))
         await pp.review_fix(job)  # Harness evidence only; NO model call here.
         local = pp.read_json(job / 'local-snapshot.json')
+        for entry in local['files']:
+            entry['after'] = (workspace / entry['file']).read_bytes().decode('utf-8')
+            entry['patch'] = unified_patch(entry['file'], entry['before'], entry['after'])
+        pp.save(job / 'agent-snapshot.json', local)
         frozen_hashes = dict(state['candidate_hashes'])
         stage = 'reviewer'
         state['rereview_attempts'] = 1
@@ -217,7 +219,9 @@ async def run_agent_pair(job, proposer_client, reviewer_client, *, max_requests=
     except Exception as exc:
         result['status'] = 'proposal_inconclusive' if stage == 'proposer' else 'review_inconclusive'
         result['error_type'] = type(exc).__name__
-        log_event(traces[stage], 'stage_failed', exception_type=type(exc).__name__)
+        # Only our bounded, literal guard errors may be displayed; never SDK exception text.
+        result['error_reason'] = redact(str(exc)[:240]) if isinstance(exc, ReviewError) else 'Agent stage failed; inspect the bounded transcript.'
+        log_event(traces[stage], 'stage_failed', exception_type=type(exc).__name__, reason=result['error_reason'])
     persist()
     return result
 

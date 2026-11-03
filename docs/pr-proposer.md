@@ -1,5 +1,8 @@
 # Human-selected PR repairs
 
+For independent tool-using Agent loops, see [Proposer / Reviewer Agents](proposal-agents.md).
+The command documented here remains the bounded, one-shot PR-finding repair mode.
+
 For requirement-first generation before any review exists, use
 [proposal then review](proposal-review.md). This page describes the separate
 entry for repairing selected findings from an existing PR review.

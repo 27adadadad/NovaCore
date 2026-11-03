@@ -1,5 +1,8 @@
 # 先提案，再审核
 
+本文是保留兼容性的轻量双调用模式。需要模型自主选择工具、观察反馈并继续执行时，
+使用[真正的 Proposer / Reviewer Agent](proposal-agents.md)，入口为 `novacore.proposal_agents`。
+
 这是从需求开始的入口，不需要预先有审查问题：
 
 ```text
