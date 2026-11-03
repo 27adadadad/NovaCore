@@ -77,8 +77,9 @@ semantically correct; findings still require human judgment.
 Collection exits 0 for complete collection and 2 for incomplete/unavailable input.
 Live review exits 0 for `no_findings`, 1 for `request_changes`, and 2 for
 `inconclusive`. Review failures do not authorize merge. Nothing runs CI or checks
-the whole application. Proposer repairs and publishing reviews are outside this
-version's scope.
+the whole application. This command does not repair or publish reviews.
+For requirement-first generation, see [proposal then review](proposal-review.md);
+for existing PR findings, see [human-selected repairs](pr-proposer.md).
 
 If collection fails, check the URL, `gh` installation/login, repository access,
 rate limits and output permissions. Raw authentication errors and environment

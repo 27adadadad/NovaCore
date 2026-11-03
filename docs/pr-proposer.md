@@ -1,5 +1,9 @@
 # Human-selected PR repairs
 
+For requirement-first generation before any review exists, use
+[proposal then review](proposal-review.md). This page describes the separate
+entry for repairing selected findings from an existing PR review.
+
 The Proposer consumes a completed local PR review and fixes only explicitly selected
 findings. It never commits, pushes, posts a review, or merges. Model access remains
 opt-in for each stage. A report with `no_findings` cannot start a repair.
