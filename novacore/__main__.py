@@ -160,6 +160,10 @@ async def main()->None:
     registry.register(
         LoadSkill(skill_loader)
     )
+    from novacore.proposal_skill import RunProposalReview, terminal_consent
+    registry.register(
+        RunProposalReview(sandbox.project_root, confirm=terminal_consent)
+    )
     agent_loader = AgentLoader(
         sandbox.project_root
     )
