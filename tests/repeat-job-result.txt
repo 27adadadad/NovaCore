@@ -1,0 +1,14 @@
+Offline observed run; local paths replaced with placeholders. No live model calls.
+
+============================= test session starts =============================
+platform win32 -- Python 3.13.12, pytest-9.1.1, pluggy-1.5.0 -- <local-venv>\Scripts\python.exe
+rootdir: <checkout>
+configfile: pyproject.toml
+plugins: anyio-4.10.0, langsmith-0.10.17, asyncio-1.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 1 item
+
+..\nova\novacore\.worktrees\codex-pr-review\tests\test_proposal_agents.py::test_repeat_job_does_not_spend_again PASSED [100%]
+
+- generated xml file: <external-results.xml> -
+============================= 1 passed in 23.32s ==============================
