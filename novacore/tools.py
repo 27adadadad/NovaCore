@@ -769,8 +769,11 @@ class Bash:
         self.work_dir = (
             Path(work_dir).resolve()
             if work_dir is not None
-            else Path.cwd()
+            else Path.cwd().resolve()
         )
+        from novacore.shell_environment import shell_executable, environment_description
+        self.shell_executable = shell_executable()
+        self.description = type(self).description + environment_description(self.work_dir, self.shell_executable)
 
     def get_schema(self)->dict[str, Any]:
         schema = self.params_model.model_json_schema()
@@ -794,61 +797,63 @@ class Bash:
             MAX_COMMAND_TIMEOUT,
         )
 
-        process:asyncio.subprocess.Process | None = None
+        process = None
+        communication = None
+
+        def result(status, stdout=b'', stderr=b'', *, outcome='unknown', reason=''):
+            exit_code = process.returncode if process is not None else None
+            return ToolResult(output=json.dumps({
+                'status': status, 'exit_code': exit_code,
+                'stdout': stdout.decode('utf-8', errors='replace'),
+                'stderr': stderr.decode('utf-8', errors='replace'),
+                'output_encoding': 'utf-8 with replacement; native command encoding may differ',
+                'cwd': str(self.work_dir), 'shell': self.shell_executable,
+                'operation_outcome': outcome, 'reason': reason,
+            }, ensure_ascii=False), is_error=status != 'succeeded')
+
+        async def stop_direct_shell():
+            if process is not None and process.returncode is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                await process.wait()
 
         try:
             process = await asyncio.create_subprocess_shell(
-                params.command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                params.command, executable=self.shell_executable,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                 cwd=self.work_dir,
             )
-
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout,
-            )
-
+            communication = asyncio.create_task(process.communicate())
+            # Shield communicate so its captured bytes survive a timeout.
+            stdout, stderr = await asyncio.wait_for(asyncio.shield(communication), timeout)
+            ok = process.returncode == 0
+            return result('succeeded' if ok else 'failed', stdout, stderr,
+                          outcome='process_exited', reason='' if ok else 'Command returned nonzero exit status')
         except asyncio.TimeoutError:
-            if (
-                process is not None 
-                and process.returncode is None 
-            ):
-                process.kill()
-                await process.wait()
-
-            return ToolResult(
-                output=(
-                    f"Error: command timed out "
-                    f"after {timeout}s"
-                ),
-                is_error=True
-            )
-        
-        except Exception as exc:
-            return ToolResult(
-                output=f"Error executing command: {exc}",
-                is_error=True,
-            )
-
-        output = (
-            stdout.decode(errors="replace")
-            if stdout
-            else "(no output)"
-        )
-
-        exit_code = process.returncode or 0
-
-        if exit_code != 0:
-            output = (
-                f"{output.rstrip()}\n\n"
-                f"Exit code {exit_code}"
-            )
-
-        return ToolResult(
-            output=output,
-            is_error=False,
-        )
+            await stop_direct_shell()
+            stdout, stderr = b'', b''
+            try:
+                stdout, stderr = await asyncio.wait_for(asyncio.shield(communication), 1.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+            return result('timed_out', stdout, stderr,
+                          reason=f'Command timed out after {timeout}s; direct shell stopped. Descendants may remain; side effects are unknown.')
+        except asyncio.CancelledError:
+            await stop_direct_shell()
+            raise  # Agent records cancellation; never fabricate a successful tool result.
+        except Exception:
+            await stop_direct_shell()
+            return result('spawn_error' if process is None else 'execution_error',
+                          reason='Command could not be started or collected; no automatic retry.')
+        finally:
+            if communication is not None and not communication.done():
+                communication.cancel()
+                try:
+                    await communication
+                except (asyncio.CancelledError, Exception):
+                    pass
 
 class ToolRegistry:
     def __init__(self)-> None:
