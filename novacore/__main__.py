@@ -164,6 +164,8 @@ async def main()->None:
     registry.register(
         RunProposalReview(sandbox.project_root, confirm=terminal_consent)
     )
+    from novacore.dev_evidence import CollectDevEvidence
+    registry.register(CollectDevEvidence(sandbox.project_root))
     agent_loader = AgentLoader(
         sandbox.project_root
     )

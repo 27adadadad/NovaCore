@@ -22,6 +22,7 @@ assert Path(novacore.__file__).resolve().is_relative_to(Path(sys.prefix).resolve
 loader=SkillLoader(Path.cwd(), user_skills_dir=Path.cwd()/'empty-user-skills')
 loader.load_all()
 assert loader.get('proposal-review') is not None
+assert loader.get('dev-evidence') is not None
 from novacore.shell_environment import shell_executable
 assert Path(shell_executable()).is_file()
 print('INSTALLED_WHEEL_SMOKE=passed;MODEL_REQUESTS=0')
