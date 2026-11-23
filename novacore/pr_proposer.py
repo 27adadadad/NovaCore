@@ -186,6 +186,15 @@ def materialize_job(snapshot, repo, allowed, findings, output, *, job_kind='pr_f
     return state
 
 
+def _is_reparse_path(path):
+    """Reject symlinks and Windows reparse points on Python 3.11 as well.
+
+    lstat does not follow the link. FILE_ATTRIBUTE_REPARSE_POINT is 0x400;
+    POSIX stat results have no st_file_attributes. Inspection errors propagate.
+    """
+    return path.is_symlink() or bool(getattr(path.lstat(), 'st_file_attributes', 0) & 0x400)
+
+
 def workspace_state(job):
     job = Path(job)
     state = read_json(job / 'fix-report.json')
@@ -193,7 +202,7 @@ def workspace_state(job):
     if digest(snapshot_path.read_bytes()) != state['snapshot_sha256']:
         raise ReviewError('Prepared snapshot was modified')
     workspace = job.resolve() / 'worktree'
-    if str(workspace) != state['workspace'] or workspace.is_symlink() or workspace.is_junction():
+    if str(workspace) != state['workspace'] or _is_reparse_path(workspace):
         raise ReviewError('Workspace identity changed')
     if (git(workspace, 'rev-parse', 'HEAD').decode().strip() != state['head_sha'] or
             git(workspace, 'branch', '--show-current').decode().strip() != state['branch']):
@@ -202,7 +211,7 @@ def workspace_state(job):
     for directory, dirs, files in os.walk(workspace, followlinks=False):
         for name in dirs + files:
             path = Path(directory) / name
-            if path.is_symlink() or path.is_junction():
+            if _is_reparse_path(path):
                 raise ReviewError('Workspace links are not supported')
         for name in files:
             path = Path(directory) / name

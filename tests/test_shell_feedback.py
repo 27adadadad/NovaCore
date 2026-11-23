@@ -52,3 +52,15 @@ def test_failed_command_counter_and_reset(tmp_path):
     r = asyncio.run(tool.execute(BashParams(**good)))
     state.observe('ok', 'Bash', good, r.output, r.is_error)
     assert not r.is_error and state.identical_failures == 0
+
+
+def test_workspace_reparse_check_without_new_pathlib_api(tmp_path):
+    from novacore.pr_proposer import _is_reparse_path
+    from types import SimpleNamespace
+    class Reparse:
+        def is_symlink(self):
+            return False
+        def lstat(self):
+            return SimpleNamespace(st_file_attributes=0x400)
+    assert _is_reparse_path(Reparse())
+    assert not _is_reparse_path(tmp_path)
