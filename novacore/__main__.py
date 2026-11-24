@@ -164,8 +164,6 @@ async def main()->None:
     registry.register(
         RunProposalReview(sandbox.project_root, confirm=terminal_consent)
     )
-    from novacore.dev_evidence import CollectDevEvidence
-    registry.register(CollectDevEvidence(sandbox.project_root))
     agent_loader = AgentLoader(
         sandbox.project_root
     )
@@ -236,6 +234,12 @@ async def main()->None:
             history=resume_result.messages,
             on_message=session.append,
         )
+
+    from novacore.dev_evidence import CollectDevEvidence
+    from novacore.evidence_reader import EvidenceStore, ReadEvidence
+    evidence_store = EvidenceStore(Path.home() / '.novacore' / 'evidence', session.session_id)
+    registry.register(CollectDevEvidence(sandbox.project_root, store=evidence_store))
+    registry.register(ReadEvidence(evidence_store))
 
     auto_memory_runner = AutoMemoryRunner(
         enabled=auto_memory_settings.enabled,

@@ -282,10 +282,12 @@ class CollectDevEvidence:
     category = 'read'
     params_model = EvidenceParams
 
-    def __init__(self, work_dir, *, output_root=None, api_factory=GitHubGET):
+    def __init__(self, work_dir, *, output_root=None, api_factory=GitHubGET, store=None):
         self.work_dir = Path(work_dir).resolve()
         self.output_root = Path(output_root or Path.home() / '.novacore' / 'evidence').resolve()
         self.api_factory = api_factory
+        from novacore.evidence_reader import EvidenceStore
+        self.store = store if store is not None else EvidenceStore(self.output_root, 'private_' + uuid.uuid4().hex)
 
     def get_schema(self):
         return {'type': 'function', 'function': {'name': self.name, 'description': self.description,
@@ -294,13 +296,15 @@ class CollectDevEvidence:
     async def execute(self, params):
         cancelled = threading.Event()
         try:
-            output = self.output_root / ('evidence-' + uuid.uuid4().hex)
+            output = self.store.new_directory()
             if output == self.work_dir or self.work_dir in output.parents:
                 raise ReviewError('Evidence output must stay outside the checkout')
             data = await asyncio.to_thread(collect_evidence, params.url, self.api_factory(), docs=params.docs,
                                            _cancel=cancelled)
             save_bundle(data, output)
+            artifact_id = self.store.register(output)
             return ToolResult(output=json.dumps({'status': 'collected', 'coverage': data['coverage'],
+                'artifact_id': artifact_id, 'next_tool': 'ReadEvidence',
                 'bundle': str(output / 'bundle.json'), 'report': str(output / 'report.md'),
                 'nodes': len(data['nodes']), 'model_calls': 0}, ensure_ascii=True))
         except asyncio.CancelledError:

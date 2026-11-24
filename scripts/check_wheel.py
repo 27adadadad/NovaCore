@@ -24,6 +24,8 @@ loader.load_all()
 assert loader.get('proposal-review') is not None
 assert loader.get('dev-evidence') is not None
 from novacore.shell_environment import shell_executable
+from novacore.evidence_reader import EvidenceStore, ReadEvidence
+assert ReadEvidence(EvidenceStore(Path.cwd()/'evidence', 'smoke')).get_schema()['function']['name']=='ReadEvidence'
 assert Path(shell_executable()).is_file()
 print('INSTALLED_WHEEL_SMOKE=passed;MODEL_REQUESTS=0')
 '''
