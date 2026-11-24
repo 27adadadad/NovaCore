@@ -240,6 +240,8 @@ async def main()->None:
     evidence_store = EvidenceStore(Path.home() / '.novacore' / 'evidence', session.session_id)
     registry.register(CollectDevEvidence(sandbox.project_root, store=evidence_store))
     registry.register(ReadEvidence(evidence_store))
+    from novacore.evidence_citations import ValidateEvidenceCitations
+    registry.register(ValidateEvidenceCitations(evidence_store))
 
     auto_memory_runner = AutoMemoryRunner(
         enabled=auto_memory_settings.enabled,

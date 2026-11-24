@@ -145,6 +145,8 @@ def _node_summary(node):
     fields = ('id', 'kind', 'source_url', 'repository', 'commit_sha', 'captured_at', 'content_sha256', 'line_start', 'line_end')
     value = {k: node.get(k) for k in fields}
     value['path'] = str(node['payload'].get('path', ''))[:512]
+    value['role'] = node['payload'].get('role')
+    value['change_status'] = node['payload'].get('status', node['payload'].get('change_status', 'unknown'))
     value['available_fields'] = ['metadata'] + [k for k in ('content', 'patch') if isinstance(node['payload'].get(k), str)]
     return value
 
@@ -179,7 +181,8 @@ class ReadEvidence:
         try:
             data = self.store.load(params.artifact_id)
             result = {'status': 'ok', 'artifact_id': params.artifact_id, 'untrusted_evidence': True,
-                      'coverage': _coverage(data)}
+                      'coverage': _coverage(data), 'collection_facts': data.get('collection_facts', []),
+                      'facts_available': 'collection_facts' in data}
             if params.action == 'list':
                 nodes = data['nodes']
                 if params.offset > len(nodes):

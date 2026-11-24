@@ -58,9 +58,10 @@ def collect_evidence(url, api=None, *, docs=None, _cancel=None):
     captured = datetime.now(timezone.utc).isoformat()
     nodes, edges, gaps, prs = [], [], [], []
     stale = False
+    collection_facts = []
 
-    def gap(scope, reason):
-        gaps.append({'scope': scope, 'reason': reason})
+    def gap(scope, reason, file=None):
+        gaps.append({'scope': scope, 'reason': reason, 'file': file})
 
     def node(kind, source_url, payload, *, repo=repository, sha=None, **location):
         key = 'E' + str(len(nodes) + 1)
@@ -140,11 +141,18 @@ def collect_evidence(url, api=None, *, docs=None, _cancel=None):
                 stale = True
                 gap(pr_url, 'pr_changed_during_collection')
             for item in snapshot['coverage']['skipped']:
-                gap(pr_url, item['reason'])
+                gap(pr_url, item['reason'], item.get('file'))
         except (ReviewError, KeyError, TypeError, ValueError):
             gap(pr_url, 'pr_collection_unavailable_or_limit')
             continue
-        pr = node('pull_request', pr_url, snapshot['metadata'], sha=sha)
+        facts = {'pr_url': pr_url, 'commit_sha': sha,
+                 'total_changed_files': snapshot['coverage']['total_files'],
+                 'collected_changed_files': len(snapshot['files']),
+                 'context_documents': 0,
+                 'omitted_file_records': sum(item.get('file') is not None for item in snapshot['coverage']['skipped'])}
+        collection_facts.append(facts)
+        pr = node('pull_request', pr_url, {**snapshot['metadata'], 'collection_summary': {
+            **facts, 'skipped_files': snapshot['coverage']['skipped']}}, sha=sha)
         if root_issue:
             edge(root_issue, pr, 'timeline_cross_reference')
         commit = node('commit', f'https://github.com/{head_repo}/commit/{sha}',
@@ -169,6 +177,7 @@ def collect_evidence(url, api=None, *, docs=None, _cancel=None):
             path = f['previous_file'] if removed else f['file']
             code = node('code', f'https://github.com/{file_repo}/blob/{file_sha}/{quote(path, safe="/")}',
                         {'path': path, 'content': content, 'patch': f['patch'], 'status': f['status'],
+                         'role': 'changed_file',
                          'patch_base_sha': snapshot['merge_base_sha'], 'patch_head_sha': sha},
                         repo=file_repo, sha=file_sha, line_start=1 if content else None,
                         line_end=len(content.splitlines()) or None)
@@ -184,9 +193,11 @@ def collect_evidence(url, api=None, *, docs=None, _cancel=None):
                     raise ValueError()
                 text = raw.decode('utf-8')
                 doc = node('document', f'https://github.com/{head_repo}/blob/{sha}/{quote(path, safe="/")}',
-                           {'path': path, 'content': text}, repo=head_repo, sha=sha,
+                           {'path': path, 'content': text, 'role': 'context_document',
+                            'change_status': next((f['status'] for f in snapshot['files'] if f['file'] == path), 'unknown')}, repo=head_repo, sha=sha,
                            line_start=1 if text else None, line_end=len(text.splitlines()) or None)
                 edge(commit, doc, 'context_document_not_proven_requirement')
+                facts['context_documents'] += 1
             except (ValueError, KeyError, TypeError, UnicodeError):
                 gap('document:' + path, 'unavailable_or_unsupported_text')
         # Fork PR checks can exist in either repository. Never mix another SHA.
@@ -239,7 +250,14 @@ def collect_evidence(url, api=None, *, docs=None, _cancel=None):
         if not confirmed:
             stale = True
             gap(pr_url, 'final_version_changed_or_unconfirmed')
+        # Update the PR metadata after all optional document requests, then
+        # recompute its payload digest so node metadata remains consistent.
+        pr_node = next(n for n in nodes if n['id'] == pr)
+        pr_node['payload']['collection_summary'].update(facts)
+        pr_node['content_sha256'] = hashlib.sha256(json.dumps(pr_node['payload'], ensure_ascii=False,
+            sort_keys=True).encode('utf-8')).hexdigest()
     return {'schema_version': 1, 'input_url': url, 'captured_at': captured,
+            'collection_facts': collection_facts,
             'untrusted_evidence': True, 'nodes': nodes, 'edges': edges, 'pull_requests': prs,
             'coverage': {'status': 'partial' if gaps else 'bounded_complete', 'stale': stale, 'gaps': gaps,
                          'scope': 'Explicit references, first-page CI/timeline, selected changed files/documents only.'},
