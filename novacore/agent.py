@@ -304,6 +304,9 @@ class Agent:
     )->AsyncIterator[
         PermissionRequest | ToolResult
     ]:
+        # Authorize and execute the same private argument snapshot. A caller
+        # mutating the original request while the UI waits cannot swap commands.
+        tool_call = deepcopy(tool_call)
         state = self._current_conversation.task_state if self._current_conversation else None
         if state is not None and state.blocks(tool_call.tool_name, tool_call.arguments):
             yield ToolResult(output="Repeated identical failed operation blocked; change approach or ask the user.", is_error=True)

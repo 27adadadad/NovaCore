@@ -1059,6 +1059,7 @@ class ToolRegistry:
     
 def create_default_registry(
     work_dir:str | Path | None = None,
+    *, read_only: bool = False,
 ) -> ToolRegistry:
     registry = ToolRegistry()
     registry.register(
@@ -1066,10 +1067,9 @@ def create_default_registry(
     )
     registry.register(Glob(work_dir=work_dir))
     registry.register(Grep(work_dir=work_dir))
-    registry.register(
-        WriteFile(work_dir=work_dir)
-    )
-    registry.register(Bash(work_dir=work_dir))
+    if not read_only:
+        registry.register(WriteFile(work_dir=work_dir))
+        registry.register(Bash(work_dir=work_dir))
     return registry
 
 

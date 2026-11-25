@@ -112,7 +112,12 @@ def parse_args()->argparse.Namespace:
         ),
     )
     
+    parser.add_argument('--read-only', action='store_true',
+                        help='Read-only analysis: no shell, writes, delegation or external MCP tools')
     args = parser.parse_args()
+
+    if args.read_only and args.mcp_config is not None:
+        parser.error('--read-only does not load external MCP servers; remote read categories are not a safety guarantee')
 
     if args.prompt is None and args.stream:
         parser.error(
@@ -137,7 +142,7 @@ async def main()->None:
 
     client = DashScopeClient(config)
     registry = create_default_registry(
-        work_dir=sandbox.project_root
+        work_dir=sandbox.project_root, read_only=args.read_only
     )
     memory_store = MemoryStore(
         sandbox.project_root
@@ -145,9 +150,8 @@ async def main()->None:
     registry.register(
         RecallMemory(memory_store)
     )
-    registry.register(
-        Remember(memory_store)
-    )
+    if not args.read_only:
+        registry.register(Remember(memory_store))
     registry.register(
         ToolSearch(registry)
     )
@@ -161,9 +165,8 @@ async def main()->None:
         LoadSkill(skill_loader)
     )
     from novacore.proposal_skill import RunProposalReview, terminal_consent
-    registry.register(
-        RunProposalReview(sandbox.project_root, confirm=terminal_consent)
-    )
+    if not args.read_only:
+        registry.register(RunProposalReview(sandbox.project_root, confirm=terminal_consent))
     agent_loader = AgentLoader(
         sandbox.project_root
     )
@@ -183,6 +186,7 @@ async def main()->None:
         permission_checker=permission_checker,
     ) 
     task_manager = TaskManager()
+    agent.read_only = args.read_only
     worktree_manager = WorktreeManager(
         sandbox.project_root
     )
@@ -197,19 +201,10 @@ async def main()->None:
         worktree_manager=worktree_manager,
     )
 
-    register_team_tools(
-        registry,
-        coordinator,
-        deferred=True,
-    )
-    registry.register(
-        AgentTool(
-            loader=agent_loader,
-            parent_agent=agent,
-            task_manager=task_manager,
-            worktree_manager=worktree_manager,
-        )
-    )
+    if not args.read_only:
+        register_team_tools(registry, coordinator, deferred=True)
+        registry.register(AgentTool(loader=agent_loader, parent_agent=agent,
+                                   task_manager=task_manager, worktree_manager=worktree_manager))
 
     if args.resume is None:
         session = session_manager.create()
@@ -244,7 +239,7 @@ async def main()->None:
     registry.register(ValidateEvidenceCitations(evidence_store))
 
     auto_memory_runner = AutoMemoryRunner(
-        enabled=auto_memory_settings.enabled,
+        enabled=auto_memory_settings.enabled and not args.read_only,
         max_candidates=auto_memory_settings.max_candidates,
         client=client,
         conversation=conversation,
@@ -533,6 +528,7 @@ async def main()->None:
                     task_manager=task_manager,
                     memory_store=memory_store,
                     coordinator=coordinator,
+                    read_only=args.read_only,
                 ),
                 invocation,
             )

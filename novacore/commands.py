@@ -33,6 +33,7 @@ class CommandContext:
     task_manager: TaskManager | None = None
     memory_store: MemoryStore | None = None
     coordinator: Coordinator | None = None
+    read_only: bool = False
 
 @dataclass
 class CommandInvocation:
@@ -530,6 +531,8 @@ class CommandRegistry:
         context:CommandContext,
         invocation:CommandInvocation,
     )->CommandResult:
+        if context.read_only and invocation.name == 'team' and invocation.arguments:
+            return CommandResult(content='Read-only mode does not resume, start or mutate team work.', is_error=True)
         command = self._commands.get(
             invocation.name
         )

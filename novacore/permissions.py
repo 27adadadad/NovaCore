@@ -67,6 +67,8 @@ class PermissionChecker:
         tool: Tool,
         arguments:dict[str, Any]
     )->Decision:
+        if tool.name == 'Bash' and not isinstance(arguments.get('command'), str):
+            return Decision('deny', 'A literal shell command is required')
         if tool.category =="command":
             command = arguments.get("command")
 
@@ -126,6 +128,14 @@ class PermissionChecker:
                         ),
                     )
         
+        if tool.name == 'Bash':
+            import json
+            return Decision('ask', 'Approve this exact command once. Shell is NOT path-isolated; '
+                            'it may access files outside the project, network and other processes. '
+                            'cwd=' + json.dumps(str(getattr(tool, 'work_dir', 'unknown')), ensure_ascii=True)
+                            + '; shell=' + json.dumps(str(getattr(tool, 'shell_executable', 'unknown')), ensure_ascii=True)
+                            + '. This confirmation is required in every permission mode; non-interactive calls are denied.')
+
         effect = mode_decide(
            self.mode,
            tool.category,

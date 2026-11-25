@@ -124,6 +124,7 @@ class NovaCoreApp(App[None]):
             task_manager=self.task_manager,
             memory_store=self.memory_store,
             coordinator=self.coordinator,
+            read_only=getattr(agent, 'read_only', False),
 
         )
 
