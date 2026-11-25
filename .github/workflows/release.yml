@@ -1,0 +1,98 @@
+name: Approved GitHub Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+      - name: Resolve checked out commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Prepare exact successful CI wheel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.source.outputs.sha }}
+          TAG: ${{ github.ref_name }}
+        run: python scripts/prepare_release.py --repo "$REPO" --sha "$SHA" --tag "$TAG" --output release-candidate
+      - name: Upload reviewable release candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-candidate
+          path: release-candidate/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: release
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # No repository checkout or package execution in this write-capable job.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-candidate
+          path: release-candidate
+      - name: Verify candidate receipt and checksums
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re
+          root = pathlib.Path('release-candidate')
+          m = json.loads((root/'release-manifest.json').read_text())
+          assert re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', os.environ['TAG'])
+          assert m['tag_verified'] is True
+          assert (m['repository'], m['commit_sha'], m['tag']) == (os.environ['REPO'], os.environ['SHA'], os.environ['TAG'])
+          assert re.fullmatch(r'novacore-[0-9]+\.[0-9]+\.[0-9]+-py3-none-any\.whl', m['wheel'])
+          assert set(p.name for p in root.iterdir()) == {m['wheel'], 'release-manifest.json', 'SHA256SUMS', 'notes.md'}
+          entries = {}
+          for line in (root/'SHA256SUMS').read_text().splitlines():
+              digest, name = line.split('  ', 1)
+              assert name in {m['wheel'], 'release-manifest.json', 'notes.md'} and name not in entries
+              assert hashlib.sha256((root/name).read_bytes()).hexdigest() == digest
+              entries[name] = digest
+          assert len(entries) == 3 and entries[m['wheel']] == m['wheel_sha256']
+          PY
+      - name: Publish approved version without overwriting an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to overwrite.' >&2
+            exit 1
+          fi
+          resolved=$(gh api "repos/$GH_REPO/commits/$TAG" --jq .sha)
+          test "$resolved" = "$SHA" || { echo 'Tag changed since preparation' >&2; exit 1; }
+          gh release create "$TAG" release-candidate/*.whl release-candidate/SHA256SUMS release-candidate/release-manifest.json --verify-tag --target "$SHA" --title "NovaCore $TAG" --notes-file release-candidate/notes.md
